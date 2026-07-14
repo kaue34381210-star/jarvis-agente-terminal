@@ -45,13 +45,11 @@ def listar_diretorio(caminho: str = ".") -> str:
 
 
 def rodar_comando(comando: str) -> str:
+    # A liberação por risco (🟢🟡🔴) é feita na camada de aprovação (agente.py).
+    # Aqui só executamos com sandbox de diretório e timeout.
     partes = comando.strip().split()
     if not partes:
         return "ERRO: comando vazio"
-    exe = os.path.basename(partes[0]).lower()
-    if exe not in config.COMANDOS_PERMITIDOS:
-        return (f"ERRO: comando '{exe}' não permitido. "
-                f"Liberados: {', '.join(sorted(config.COMANDOS_PERMITIDOS))}")
     try:
         r = subprocess.run(partes, cwd=config.WORKSPACE, capture_output=True,
                            text=True, timeout=config.TIMEOUT_COMANDO)

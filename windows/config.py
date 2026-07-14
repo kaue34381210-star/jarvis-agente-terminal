@@ -41,9 +41,12 @@ MAX_ITER = 10         # trava anti-loop do ReAct
 WORKSPACE = os.environ.get("AGENTE_WORKSPACE", os.path.join(BASE, "workspace"))
 DADOS = os.environ.get("AGENTE_DADOS", os.path.join(BASE, "dados"))
 
-# --- Segurança: rodar_comando só aceita estes executáveis ---
+# --- Segurança: aprovação inteligente (🟢🟡🔴) em aprovacao.py ---
+# Não é mais uma whitelist que bloqueia: estes executáveis são tratados
+# como SEMPRE 🟢 seguros (rodam sem pedir confirmação), somados aos padrões
+# de leitura já reconhecidos. Qualquer outro comando é classificado por risco.
 COMANDOS_PERMITIDOS = {
     "ls", "dir", "cat", "type", "echo", "pwd", "cd", "date", "whoami",
-    "hostname", "python", "python3", "git", "grep", "find", "head", "tail", "wc",
+    "hostname", "grep", "find", "head", "tail", "wc",
 }
 TIMEOUT_COMANDO = 30

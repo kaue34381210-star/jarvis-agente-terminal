@@ -8,6 +8,7 @@ from rich.panel import Panel
 from rich.rule import Rule
 from rich.text import Text
 
+import aprovacao
 import config
 import ferramentas
 from gemini import PoolChaves, carregar_chaves, chamar
@@ -23,8 +24,12 @@ Ferramentas:
 - listar_diretorio(caminho)     lista arquivos ("." = raiz)
 - criar_planilha(nome, dados, cabecalho)  cria Excel .xlsx; dados = lista de linhas (listas) ou de dicionários
 - criar_pdf(nome, titulo, conteudo, tabela)  cria PDF; conteudo = texto/lista de parágrafos; tabela = lista de linhas (1ª = cabeçalho)
-- rodar_comando(comando)        executa comando simples (whitelist)
+- rodar_comando(comando)        executa comando no shell do sistema
 - buscar_docs(consulta)         busca nos documentos do usuário
+
+APROVAÇÃO: os comandos passam por um filtro de risco (🟢 seguro roda direto,
+🟡 pede confirmação, 🔴 exige 'sim' explícito). Se o usuário RECUSAR um comando,
+NÃO insista: proponha uma alternativa mais segura ou explique o que faria.
 
 PROTOCOLO (obrigatório): responda SEMPRE com UM único objeto JSON, nada fora dele.
 - Para usar ferramenta:
@@ -35,12 +40,36 @@ PROTOCOLO (obrigatório): responda SEMPRE com UM único objeto JSON, nada fora d
 Nunca invente resultado de ferramenta. Uma ferramenta por vez. Responda em português."""
 
 MASCARA = r"""
-        ▟▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▙
-        █                 █
-        █   ◥◣        ◢◤  █
-        █                 █
-        █     ╰▄▄▄▄▄╯     █
-        ▜▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▛"""
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⣶⣾⣽⠋⠷⢶⣦⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠠⠚⠁⠸⣿⣿⠃⠀⠀⠀⣼⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⠉⢹⠀⠀⠀⢀⢻⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⠀⠀⠘⠀⠈⣀⣀⣀⣞⡼⣿⣿⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⠯⣽⢶⠋⠙⠓⠒⠛⠋⣠⣼⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢆⠀⠈⠀⠀⠀⠀⣠⢺⣿⣿⡏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⡆⢰⣆⣀⣸⣰⠁⢿⣿⣿⣿⠀⢀⡀⠀⠀⠀⠀⠀⣀⣀⣤⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⢀⣀⣀⣀⡀⠀⠀⠀⣀⣤⣼⡟⣏⣉⣋⡏⢷⣾⣿⣿⣿⡟⠁⠈⠒⢤⠖⠈⠉⠉⣰⠏⠉⠦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⢠⠋⠉⠀⣾⡗⢉⣵⢆⠉⠀⡏⢿⣹⣿⣿⣧⣿⣿⢟⡿⠋⠘⢶⠾⢿⣶⣊⣀⣀⣀⣴⡏⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⢠⢃⣠⣤⣾⣇⣴⠟⠁⠈⠳⣤⡷⢾⣿⣿⣿⣿⣻⡥⠤⠂⠀⠀⠀⠉⠲⢼⣿⣿⣿⣿⣿⣿⣆⠀⠀⠀⠀⠘⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⢀⣿⠋⣿⣿⡿⠟⠁⠀⠀⠀⠀⠀⢀⣼⣿⣭⡀⠀⠀⠙⣄⠀⠀⠀⠀⢀⣠⡤⠜⢻⣿⣿⣿⣿⣿⣷⣄⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⣼⣿⣿⣿⣿⠀⠀⠀⠀⡠⠊⠀⢠⣿⡝⠛⢻⣷⠀⠀⠀⠈⢧⡴⠚⠋⠁⠀⠀⢀⣼⣿⣶⣶⣤⡉⠹⣿⣧⡀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⣿⣿⢿⡿⣿⠀⠀⢀⡔⠁⠀⠀⢸⣹⡄⠀⣰⠟⠀⠀⠀⠀⠀⢱⣄⠀⢀⡠⠖⠉⠸⣿⣿⠿⠿⣧⡀⠈⢿⣿⢆⢧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠸⠟⠉⠈⢧⡏⡇⠀⡜⠀⠀⠀⠀⠀⠉⠙⠎⠁⠀⠀⠀⣀⣠⣤⡼⡍⢷⡍⠀⠀⠀⢀⣿⡘⡆⠀⢸⠿⠶⣶⣇⠀⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠸⡇⣧⢠⡗⠀⠀⠀⠢⢄⣀⣀⣤⣤⡖⠊⠉⠉⠁⠀⠀⠙⢆⠻⣆⠀⠀⣰⣿⣧⡇⠀⢠⠀⠀⠀⢹⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⢸⠃⣿⣾⠀⠀⠀⢀⣠⣾⡿⣿⣿⣿⣿⣷⣦⣄⠀⠀⠀⠀⠈⢦⠙⣗⠋⢹⣿⣿⣿⠀⣼⠳⣄⠀⠘⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⣾⣦⣿⣿⡆⠀⣴⣿⠟⢃⠀⣿⣿⣿⣿⡏⠛⠻⢿⣶⣄⠀⠀⠀⢣⣼⡆⢸⡟⢻⣿⣾⡃⢠⣿⣿⠚⠳⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⡜⣽⣿⣦⣙⢇⣼⣿⣿⣦⡘⡆⢻⣿⣿⣿⣷⣤⠞⠋⠁⢻⣿⣦⣴⣿⣿⣿⣼⠃⠀⠹⣿⣴⣿⢿⠏⠳⡄⠱⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⢰⠏⢸⠈⢿⣿⣿⣿⢿⣧⡃⠘⡗⢾⣿⣿⣿⣿⠀⠀⣀⣤⣿⠛⠛⢿⣿⣿⡛⠁⠀⠀⠀⢸⣟⢁⡾⠀⣀⡨⣦⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⢀⣿⡒⢺⣶⣼⣿⣿⣿⡇⢧⠛⢦⣇⢸⣿⣿⣿⣿⡴⠞⠉⠀⢻⡀⣀⡤⣿⣿⣡⠀⠀⠀⠠⣿⣿⣿⣇⠉⠁⠀⠘⢿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⣾⣿⣷⣾⣿⣿⣿⣿⣿⣇⠌⢷⡀⠙⢻⣿⣿⣿⡉⠀⠀⠠⠟⢸⠟⢁⡤⠼⣿⣿⡄⠀⠀⠀⢸⢿⣿⣿⠀⠀⠀⠀⣸⣟⡄⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⢃⡏⢆⢠⠙⢶⣌⣿⣿⣿⣿⣿⣶⣄⣠⢏⡴⠋⡇⠀⠇⢹⣣⠀⠀⠀⠈⡏⢻⣿⣄⡀⠀⣴⣿⠋⣇⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⣿⣿⣿⣿⣿⣿⣿⣿⠇⢸⡏⠈⢻⠀⠀⠙⢿⣿⣿⣿⣿⣿⣿⣿⠏⠀⠀⢱⢀⣼⣤⣿⣇⠀⠀⠀⢸⣼⣿⠿⠿⢻⣿⣿⡄⢸⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⣿⣿⣿⣿⣿⣿⣿⢇⣀⣸⣆⣠⠎⠉⠉⢻⣾⣿⣿⣿⣿⣿⣿⣧⣄⠀⠀⣸⡿⢾⠛⠻⠿⠆⣀⠀⠀⠙⢧⣤⣴⡾⢛⡿⠀⢸⠀⠀⠀⠀⠀⠀⠀⠀
+⢰⠙⣿⣿⣿⣿⡿⠁⣸⠁⡎⠉⢻⣦⣀⠀⠀⠹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣮⣿⡇⠘⣧⠀⠀⠀⠈⡇⠀⠀⢸⣿⣿⢿⣋⠁⠀⣾⠀⠀⠀⠀⠀⠀⠀⠀
+⢸⣾⣿⣿⣿⣏⠀⢰⡇⢸⠁⠀⠀⢻⣿⣷⣤⡀⢹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠸⣇⠀⠀⠀⢱⠀⣠⣺⣿⣾⣟⡻⠷⡀⣿⠀⠀⠀⠀⠀⠀⠀⠀
+⢸⢈⣿⣿⣿⣿⣄⣾⠃⡄⠀⠀⢀⣼⠙⢿⣿⣿⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣧⠀⠀⢹⡆⠀⠀⢸⣶⣿⣿⣯⠈⢦⠀⢀⠿⣿⠀⠀⠀⠀⠀⠀⠀⠀
+⠘⢏⣼⢟⡛⣻⣿⡟⢠⠃⢀⣴⣿⡇⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⢸⣿⣿⣿⣿⣿⠀⠀⠀⢻⣆⠀⢸⣿⣻⣿⢿⣷⣌⣦⠏⡴⠉⠀⠀⠀⠀⠀⠀⠀⠀
+⠘⢿⣿⣿⣿⣿⣿⡿⢾⣾⣿⣿⣿⠃⠀⢸⣿⣿⣿⣿⣿⣿⠙⣿⠘⣿⣿⣿⣿⣿⡀⠀⠀⠈⣿⡆⢸⡿⣿⣿⣿⣿⣿⣿⡾⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠈⠉⠉⠉⠰⣿⠿⠀⠱⢝⢿⣿⠀⠀⢸⣿⣿⣿⣿⣿⣿⠀⢿⣧⣿⣿⣿⢟⠉⠩⣲⢄⣰⣿⣿⣾⡇⠀⠉⠛⠛⠛⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀"""
 
 LOGO = r"""
        ██╗ █████╗ ██████╗ ██╗   ██╗██╗███████╗
@@ -94,6 +123,40 @@ def _fmt_args(args: dict) -> str:
     return ", ".join(f"{k}={str(v)[:40]!r}" for k, v in (args or {}).items())
 
 
+def _perguntar(prompt: str) -> str:
+    """Lê confirmação do usuário. Sem terminal interativo → trata como recusa."""
+    try:
+        return console.input(prompt).strip()
+    except (EOFError, KeyboardInterrupt):
+        return ""
+
+
+def _aprovar_comando(comando: str):
+    """Filtro de risco 🟢🟡🔴. Retorna (permitido, resultado_bloqueio)."""
+    extras = getattr(config, "COMANDOS_PERMITIDOS", ())
+    nivel, motivo = aprovacao.classificar(comando, seguros_extra=extras)
+
+    if nivel == "verde":
+        console.print(f"  [green]🟢 seguro[/green] [dim]— {motivo}[/dim]")
+        return True, None
+
+    if nivel == "amarelo":
+        console.print(f"  [yellow]🟡 confirmação[/yellow] [dim]— {motivo}[/dim]")
+        ok = _perguntar("  [yellow]executar?[/yellow] [dim][Enter=sim · n=não][/dim] › ") \
+            .lower() not in ("n", "nao", "não", "no", "cancelar")
+    else:  # vermelho
+        console.print(f"  [red]🔴 ALTO RISCO[/red] [bold red]— {motivo}[/bold red]")
+        ok = _perguntar("  [red]para executar digite[/red] [bold]sim[/bold] › ") \
+            .lower() == "sim"
+
+    if not ok:
+        console.print("  [dim]✋ execução cancelada pelo usuário.[/dim]")
+        return False, ("Usuário RECUSOU a execução deste comando. "
+                       "Não execute. Proponha uma alternativa mais segura "
+                       "ou explique o que o comando faria.")
+    return True, None
+
+
 def rodar(pool: PoolChaves, pergunta: str) -> str:
     mensagens = [{"role": "system", "content": SYSTEM},
                  {"role": "user", "content": pergunta}]
@@ -110,7 +173,11 @@ def rodar(pool: PoolChaves, pergunta: str) -> str:
             return texto
         args = acao.get("args", {})
         console.print(f"  [grey50]⚙ {nome}([/grey50][grey62]{_fmt_args(args)}[/grey62][grey50])[/grey50]")
-        resultado = ferramentas.executar(nome, args)
+        if nome == "rodar_comando":
+            permitido, bloqueio = _aprovar_comando(str(args.get("comando", "")))
+            resultado = ferramentas.executar(nome, args) if permitido else bloqueio
+        else:
+            resultado = ferramentas.executar(nome, args)
         mensagens.append({"role": "assistant", "content": texto})
         mensagens.append({"role": "user",
                           "content": f"RESULTADO da ferramenta {nome}:\n{resultado}"})
