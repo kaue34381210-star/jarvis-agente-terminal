@@ -2,7 +2,9 @@
 o git opera no repositório do diretório atual (config.REPO)."""
 import os
 import glob
+import json
 import shlex
+import datetime
 import subprocess
 
 import config
@@ -239,6 +241,73 @@ def consultar_cve(consulta: str) -> str:
     return "\n\n".join(blocos)
 
 
+def _ler_memoria() -> list:
+    if not os.path.isfile(config.MEMORIA):
+        return []
+    try:
+        with open(config.MEMORIA, "r", encoding="utf-8") as f:
+            dados = json.load(f)
+        return dados if isinstance(dados, list) else []
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
+def _gravar_memoria(itens: list) -> None:
+    _garantir()
+    with open(config.MEMORIA, "w", encoding="utf-8") as f:
+        json.dump(itens, f, ensure_ascii=False, indent=2)
+
+
+def carregar_memorias() -> list:
+    """Lista de memórias, usada pelo agente para injetar no contexto."""
+    return _ler_memoria()
+
+
+def memoria_salvar(texto: str, tipo: str = "fato") -> str:
+    """Guarda um fato/decisão/comando para lembrar em sessões futuras.
+    tipo sugerido: fato | comando | decisao | projeto."""
+    texto = (texto or "").strip()
+    if not texto:
+        return "ERRO: nada para lembrar (texto vazio)"
+    itens = _ler_memoria()
+    if any(m.get("texto", "").strip().lower() == texto.lower() for m in itens):
+        return "OK: já estava na memória (sem duplicar)."
+    novo_id = max((m.get("id", 0) for m in itens), default=0) + 1
+    itens.append({"id": novo_id, "ts": datetime.date.today().isoformat(),
+                  "tipo": (tipo or "fato").strip(), "texto": texto})
+    _gravar_memoria(itens)
+    return f"OK: memória #{novo_id} guardada ({tipo})."
+
+
+def memoria_listar() -> str:
+    """Lista tudo que o agente já guardou na memória."""
+    itens = _ler_memoria()
+    if not itens:
+        return "(nenhuma memória guardada)"
+    return "\n".join(f"#{m['id']} [{m.get('tipo', 'fato')}] {m['texto']}"
+                     for m in itens)
+
+
+def memoria_esquecer(alvo: str) -> str:
+    """Remove memórias por #id (ex: '3') ou por termo contido no texto."""
+    alvo = str(alvo or "").strip()
+    if not alvo:
+        return "ERRO: informe o #id ou um termo da memória a esquecer"
+    itens = _ler_memoria()
+    antes = len(itens)
+    if alvo.lstrip("#").isdigit():
+        idx = int(alvo.lstrip("#"))
+        itens = [m for m in itens if m.get("id") != idx]
+    else:
+        termo = alvo.lower()
+        itens = [m for m in itens if termo not in m.get("texto", "").lower()]
+    removidas = antes - len(itens)
+    if removidas:
+        _gravar_memoria(itens)
+        return f"OK: {removidas} memória(s) esquecida(s)."
+    return "Nenhuma memória correspondeu."
+
+
 def buscar_docs(consulta: str) -> str:
     _garantir()
     termos = [t.lower() for t in consulta.split() if len(t) > 2]
@@ -275,6 +344,9 @@ REGISTRO = {
     "rodar_comando": rodar_comando,
     "git": git,
     "consultar_cve": consultar_cve,
+    "memoria_salvar": memoria_salvar,
+    "memoria_listar": memoria_listar,
+    "memoria_esquecer": memoria_esquecer,
     "buscar_docs": buscar_docs,
 }
 

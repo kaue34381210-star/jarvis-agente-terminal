@@ -27,6 +27,9 @@ Ferramentas:
 - rodar_comando(comando)        executa comando no shell do sistema
 - git(args)                     roda git no projeto atual, ex: git("status"), git("commit -m 'msg'")
 - consultar_cve(consulta)       consulta CVEs no NVD por ID (CVE-2021-44228) ou palavra-chave
+- memoria_salvar(texto, tipo)   guarda um fato/decisão/comando pra lembrar nas próximas sessões
+- memoria_listar()              mostra tudo que já foi guardado na memória
+- memoria_esquecer(alvo)        remove memória por #id ou por termo
 - buscar_docs(consulta)         busca nos documentos do usuário
 
 GIT: use a ferramenta git para versionamento (status, diff, log, branch, add,
@@ -39,6 +42,11 @@ INTERPRETAR o resultado; consultar CVEs com consultar_cve; ler e analisar logs
 (tail/grep via rodar_comando); e gerar regras YARA/Sigma (escreva o conteúdo e
 salve com escrever_arquivo). Só escaneie/teste alvos próprios, autorizados, ou de
 laboratório/CTF; se o alvo for de terceiros, pergunte sobre a autorização antes.
+
+MEMÓRIA: quando o usuário pedir para "lembrar/guardar/anotar" algo, ou revelar
+uma preferência estável (gestor de pacotes, comando de deploy, decisão de projeto),
+use memoria_salvar. As memórias já conhecidas chegam no início desta conversa —
+use-as e respeite-as; não pergunte o que já está lá.
 
 APROVAÇÃO: os comandos passam por um filtro de risco (🟢 seguro roda direto,
 🟡 pede confirmação, 🔴 exige 'sim' explícito). Se o usuário RECUSAR um comando,
@@ -93,16 +101,28 @@ LOGO = r"""
    ╚════╝ ╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝  ╚═╝╚══════╝"""
 
 
-def banner(n_chaves: int) -> None:
+def banner(n_chaves: int, n_memorias: int = 0) -> None:
     console.print(Text(MASCARA, style="bold red3"))
     console.print(Text(LOGO, style="bold gold1"))
     console.print(
         "  [bold gold1]J[/]ust [bold gold1]A[/] [bold gold1]R[/]ather "
         "[bold gold1]V[/]ery [bold gold1]I[/]ntelligent [bold gold1]S[/]ystem"
         "   [dim italic]— às suas ordens, senhor.[/]")
-    console.print(f"  [dim]{n_chaves} chave(s) carregada(s) · failover automático · "
-                  f"digite [/dim][cyan]/ajuda[/cyan][dim] para comandos[/dim]")
+    mem = f" · [dim]{n_memorias} memória(s)[/dim]" if n_memorias else ""
+    console.print(f"  [dim]{n_chaves} chave(s) carregada(s) · failover automático[/dim]{mem}"
+                  f"[dim] · digite [/dim][cyan]/ajuda[/cyan][dim] para comandos[/dim]")
     console.print(Rule(style="grey30"))
+
+
+def _montar_system() -> str:
+    """SYSTEM + memórias persistentes injetadas no contexto."""
+    memorias = ferramentas.carregar_memorias()
+    if not memorias:
+        return SYSTEM
+    linhas = "\n".join(f"- #{m['id']} [{m.get('tipo', 'fato')}] {m['texto']}"
+                       for m in memorias)
+    return (SYSTEM + "\n\nMEMÓRIA (o que você já sabe deste usuário/ambiente — "
+            "use e respeite):\n" + linhas)
 
 
 def extrair_json(texto: str):
@@ -179,7 +199,7 @@ def _aprovar_comando(comando: str):
 
 
 def rodar(pool: PoolChaves, pergunta: str) -> str:
-    mensagens = [{"role": "system", "content": SYSTEM},
+    mensagens = [{"role": "system", "content": _montar_system()},
                  {"role": "user", "content": pergunta}]
     for _ in range(config.MAX_ITER):
         with console.status("[cyan]pensando...", spinner="dots"):
@@ -214,10 +234,15 @@ def _comando_especial(pool: PoolChaves, entrada: str) -> bool:
         raise SystemExit(0)
     if cmd in ("/ajuda", "/help"):
         console.print(Panel(
-            "[cyan]/chaves[/cyan]   status das chaves (cooldown)\n"
-            "[cyan]/limpar[/cyan]   limpa a tela\n"
-            "[cyan]/sair[/cyan]     encerra",
+            "[cyan]/chaves[/cyan]    status das chaves (cooldown)\n"
+            "[cyan]/memoria[/cyan]   mostra o que o JARVIS já lembra\n"
+            "[cyan]/limpar[/cyan]    limpa a tela\n"
+            "[cyan]/sair[/cyan]      encerra",
             title="comandos", border_style="grey37", padding=(0, 2)))
+        return True
+    if cmd in ("/memoria", "/memorias"):
+        console.print(Panel(ferramentas.memoria_listar(),
+                            title="🧠 memória", border_style="grey37", padding=(0, 2)))
         return True
     if cmd == "/chaves":
         for i, seg in enumerate(pool.status()):
@@ -241,7 +266,7 @@ def main() -> None:
         sys.exit(1)
 
     pool = PoolChaves(chaves)
-    banner(len(chaves))
+    banner(len(chaves), len(ferramentas.carregar_memorias()))
 
     arg = " ".join(sys.argv[1:]).strip()
     if arg:  # modo one-shot

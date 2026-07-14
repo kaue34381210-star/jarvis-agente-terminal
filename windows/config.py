@@ -44,6 +44,9 @@ DADOS = os.environ.get("AGENTE_DADOS", os.path.join(BASE, "dados"))
 # --- Git: opera no diretório de onde o jarvis foi chamado (fora da sandbox) ---
 REPO = os.environ.get("AGENTE_REPO", os.getcwd())
 
+# --- Memória persistente: fatos/decisões que o agente lembra entre sessões ---
+MEMORIA = os.path.join(DADOS, "memoria.json")
+
 # --- Segurança: aprovação inteligente (🟢🟡🔴) em aprovacao.py ---
 # Não é mais uma whitelist que bloqueia: estes executáveis são tratados
 # como SEMPRE 🟢 seguros (rodam sem pedir confirmação), somados aos padrões
