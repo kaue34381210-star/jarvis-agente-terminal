@@ -179,6 +179,62 @@ def criar_pdf(nome: str, titulo: str = None, conteudo=None, tabela: list = None)
     return f"OK: PDF {nome} criado"
 
 
+def _fmt_cve(cve: dict) -> str:
+    cid = cve.get("id", "?")
+    desc = next((d["value"] for d in cve.get("descriptions", [])
+                 if d.get("lang") == "en"), "(sem descrição)")
+    metrics = cve.get("metrics", {})
+    score = severidade = vetor = None
+    for chave in ("cvssMetricV31", "cvssMetricV30", "cvssMetricV2"):
+        if metrics.get(chave):
+            d = metrics[chave][0].get("cvssData", {})
+            score = d.get("baseScore")
+            severidade = d.get("baseSeverity") or metrics[chave][0].get("baseSeverity")
+            vetor = d.get("vectorString")
+            break
+    refs = [r.get("url") for r in cve.get("references", [])][:3]
+    linhas = [f"🔹 {cid}"]
+    if score is not None:
+        linhas.append(f"   CVSS: {score} ({severidade or '?'})  {vetor or ''}".rstrip())
+    if cve.get("published"):
+        linhas.append(f"   publicado: {cve['published'][:10]}")
+    linhas.append(f"   {desc[:600]}")
+    for u in refs:
+        linhas.append(f"   ref: {u}")
+    return "\n".join(linhas)
+
+
+def consultar_cve(consulta: str) -> str:
+    """Consulta CVEs na API oficial do NVD (NIST). Aceita um ID (CVE-2021-44228)
+    ou uma palavra-chave (ex: 'log4j', 'openssl heartbleed')."""
+    import re
+    import requests
+
+    consulta = (consulta or "").strip()
+    if not consulta:
+        return "ERRO: informe um CVE-ID ou palavra-chave"
+
+    base = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+    m = re.search(r"CVE-\d{4}-\d{4,7}", consulta, re.IGNORECASE)
+    params = ({"cveId": m.group(0).upper()} if m
+              else {"keywordSearch": consulta, "resultsPerPage": 5})
+    try:
+        r = requests.get(base, params=params,
+                         headers={"User-Agent": f"{config.NOME}-agente"}, timeout=20)
+    except requests.RequestException as e:
+        return f"ERRO ao consultar o NVD (sem internet?): {e}"
+    if r.status_code == 404:
+        return f"Nada encontrado para: {consulta}"
+    if r.status_code != 200:
+        return f"ERRO: NVD respondeu {r.status_code} (limite de requisições? tente de novo em ~30s)"
+
+    vulns = r.json().get("vulnerabilities", [])
+    if not vulns:
+        return f"Nada encontrado para: {consulta}"
+    blocos = [_fmt_cve(v.get("cve", {})) for v in vulns[:5]]
+    return "\n\n".join(blocos)
+
+
 def buscar_docs(consulta: str) -> str:
     _garantir()
     termos = [t.lower() for t in consulta.split() if len(t) > 2]
@@ -214,6 +270,7 @@ REGISTRO = {
     "criar_pdf": criar_pdf,
     "rodar_comando": rodar_comando,
     "git": git,
+    "consultar_cve": consultar_cve,
     "buscar_docs": buscar_docs,
 }
 
