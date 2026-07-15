@@ -95,12 +95,21 @@ def banner(rotulo_motor: str, n_memorias: int = 0) -> None:
     console.print(Text(LOGO, style="bold gold1"))
     console.print(
         "  [bold gold1]HRX CODE[/]"
-        "   [dim italic]— seu agente de IA no terminal.[/]")
-    mem = f" · [dim]{n_memorias} memória(s)[/dim]" if n_memorias else ""
-    projeto = f" · [dim]{config.PROJETO}[/dim]" if getattr(config, "PROJETO", "") else ""
-    console.print(f"  [dim]{rotulo_motor}[/dim]{mem}"
-                  f"{projeto}"
-                  f"[dim] · digite [/dim][cyan]/ajuda[/cyan][dim] para comandos[/dim]")
+        "   [dim italic]— agente de IA no terminal.[/]")
+    mem = f"[cyan]{n_memorias}[/cyan] memória(s)" if n_memorias else "sem memória salva"
+    projeto = getattr(config, "PROJETO", "") or "projeto não definido"
+    linhas = [
+        f"[dim]motor[/dim] [bold]{rotulo_motor}[/bold]",
+        f"[dim]perfil[/dim] [bold]{getattr(config, 'NOME', 'HRX CODE')}[/bold] · [dim]{projeto}[/dim]",
+        f"[dim]memória[/dim] [bold]{mem}[/bold]",
+    ]
+    console.print(Panel(
+        "\n".join(linhas),
+        border_style="gold1",
+        padding=(0, 2),
+        title="[bold]status[/bold]",
+        subtitle="[dim]digite /ajuda para ver os comandos[/dim]",
+    ))
     console.print(Rule(style="grey30"))
 
 
@@ -601,19 +610,31 @@ def _comando_especial(motor_chamar, pool, pol: permissao.Politica, historico: li
                             title="🧠 memória", border_style="grey37", padding=(0, 2)))
         return True
     if cmd == "/motor":
+        linhas = []
         if config.MOTOR == "local":
             estado = "[green]no ar[/green]" if local.disponivel() else "[red]fora do ar[/red]"
-            console.print(f"  motor: [cyan]local[/cyan] · {config.MODELO_LOCAL} · "
-                          f"{config.LOCAL_URL} ({estado})")
+            linhas = [
+                "[bold]motor[/bold] [cyan]local[/cyan]",
+                f"[bold]modelo[/bold] {config.MODELO_LOCAL}",
+                f"[bold]endpoint[/bold] {config.LOCAL_URL}",
+                f"[bold]estado[/bold] {estado}",
+            ]
         elif config.MOTOR == "gemini":
-            console.print(f"  motor: [cyan]gemini[/cyan] · {config.MODELO} · "
-                          f"{pool.n if pool else 0} chave(s)")
+            linhas = [
+                "[bold]motor[/bold] [cyan]gemini[/cyan]",
+                f"[bold]modelo[/bold] {config.MODELO}",
+                f"[bold]chaves[/bold] {pool.n if pool else 0}",
+            ]
         else:
             p = config.provedor(config.MOTOR)
             tem = "[green]chave ok[/green]" if p.get("chave") else \
                 ("[dim]sem chave[/dim]" if p.get("exige_chave") else "[dim]local[/dim]")
-            console.print(f"  motor: [cyan]{config.MOTOR}[/cyan] · "
-                          f"{p.get('modelo', '?')} · {tem}")
+            linhas = [
+                f"[bold]motor[/bold] [cyan]{config.MOTOR}[/cyan]",
+                f"[bold]modelo[/bold] {p.get('modelo', '?')}",
+                f"[bold]estado[/bold] {tem}",
+            ]
+        console.print(Panel("\n".join(linhas), title="motor ativo", border_style="grey37", padding=(0, 2)))
         return True
     if cmd == "/chaves":
         if pool is None:
