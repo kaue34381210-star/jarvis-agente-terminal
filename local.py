@@ -1,7 +1,7 @@
 """Motor local: modelo servido via llama.cpp/llamafile num endpoint compatível
 com a API da OpenAI (/v1/chat/completions). Sem chaves, sem cota, offline.
 
-Subir o servidor (Qwen2.5-7B):
+Subir o servidor (Qwen2.5-7B-Instruct):
     ./iniciar-qwen.sh
 """
 import requests

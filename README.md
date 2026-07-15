@@ -18,7 +18,7 @@ além de uma interface estilizada. Roda direto do repositório com
   - `rodar_comando` (whitelist de segurança), `buscar_docs` (RAG simples)
 - **Sandbox:** o agente só lê/escreve dentro de `workspace/` e lê `dados/`.
 - **UI:** banner ASCII, cores e respostas em markdown (via `rich`).
-- **Motor local padrão:** Qwen2.5 GGUF em `llamafile`, sem chave, cota ou internet.
+- **Motor local padrão:** Qwen2.5-7B GGUF em `llamafile`, sem chave, cota ou internet.
 - **Motores configuráveis:** escolha o provedor, modelo, URL e chave pelo
   comando `/config`; as credenciais ficam fora do repositório.
 - **Memória compacta no prompt:** carrega só um resumo curto das memórias para

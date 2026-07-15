@@ -30,6 +30,10 @@ comportamento, os comandos ou a configuração mudarem.
 - Memória agora gera um resumo persistente quando passa do limite configurado,
   preservando os itens mais recentes e reduzindo o custo de contexto.
 - `README.md` atualizado para refletir comandos e organização do projeto.
+- Motor local padrao definido como `local` e a dica de inicializacao agora
+  aponta para `./iniciar-qwen.sh`.
+- Modelo local padronizado como `Qwen2.5-7B-Instruct` nas mensagens e na
+  documentacao do projeto.
 
 ## Regra prática
 
