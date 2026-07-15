@@ -2,7 +2,7 @@
 com a API da OpenAI (/v1/chat/completions). Sem chaves, sem cota, offline.
 
 Subir o servidor (Qwen2.5-7B):
-    ~/agente-ia/bin/llamafile --server --port 8080 -c 4096 -m ~/agente-ia/bin/modelo.gguf
+    ./iniciar-qwen.sh
 """
 import requests
 from urllib.parse import urlsplit, urlunsplit
@@ -10,8 +10,7 @@ from urllib.parse import urlsplit, urlunsplit
 import config
 
 # dica de como subir o modelo, mostrada quando a conexão falha
-DICA_SERVIDOR = ("~/agente-ia/bin/llamafile --server --port 8080 -c 4096 "
-                 "-m ~/agente-ia/bin/modelo.gguf")
+DICA_SERVIDOR = "./iniciar-qwen.sh"
 
 
 def disponivel() -> bool:

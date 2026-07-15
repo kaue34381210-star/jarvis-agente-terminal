@@ -55,7 +55,7 @@ python agente.py            # chat interativo
 python agente.py "tarefa"   # pergunta única (one-shot)
 ```
 
-Motor local (Qwen/llamafile), em outro terminal: `./iniciar-qwen.sh`.
+Dica para subir o motor local em outro terminal: `./iniciar-qwen.sh`.
 Dica: crie um atalho `hrx` apontando para `.venv/bin/python agente.py`.
 
 Comandos no chat: `/config` (escolhe e configura o motor), `/motor`, `/chaves`
