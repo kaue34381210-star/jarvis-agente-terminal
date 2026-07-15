@@ -190,6 +190,9 @@ MEMORIA = os.path.join(DADOS, "memoria.json")
 MEMORIA_PROMPT = os.environ.get("HRX_MEMORIA_PROMPT", "compacta").strip().lower()
 MEMORIA_PROMPT_MAX_ITENS = int(os.environ.get("HRX_MEMORIA_PROMPT_MAX_ITENS", "8"))
 MEMORIA_PROMPT_MAX_CHARS = int(os.environ.get("HRX_MEMORIA_PROMPT_MAX_CHARS", "900"))
+MEMORIA_PROMPT_RESUMO_A_PARTIR = int(os.environ.get("HRX_MEMORIA_PROMPT_RESUMO_A_PARTIR", "20"))
+MEMORIA_PROMPT_RESUMO_ITENS = int(os.environ.get("HRX_MEMORIA_PROMPT_RESUMO_ITENS", "12"))
+MEMORIA_PROMPT_RESUMO_CHARS = int(os.environ.get("HRX_MEMORIA_PROMPT_RESUMO_CHARS", "1200"))
 
 # --- Segurança: aprovação inteligente (🟢🟡🔴) em aprovacao.py ---
 # Não é mais uma whitelist que bloqueia: estes executáveis são tratados

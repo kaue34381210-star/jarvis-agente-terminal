@@ -26,6 +26,9 @@ comportamento, os comandos ou a configuração mudarem.
   de itens e caracteres para gastar menos tokens e permitir sessões maiores.
 - Adicionado `/memoria modo compacta|completa` para alternar a injeção da
   memória no contexto sem editar arquivo.
+- Adicionados `/memoria compacta`, `/memoria resumir` e `/memoria limpar`.
+- Memória agora gera um resumo persistente quando passa do limite configurado,
+  preservando os itens mais recentes e reduzindo o custo de contexto.
 - `README.md` atualizado para refletir comandos e organização do projeto.
 
 ## Regra prática

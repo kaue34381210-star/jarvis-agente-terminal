@@ -116,7 +116,7 @@ UM objeto JSON só: {"pensamento": "...", "ferramenta": "nome", "args": {...}}.
 """
 
 
-def _montar_system() -> str:
+def _montar_system(consulta: str = "") -> str:
     """SYSTEM + memórias persistentes injetadas no contexto."""
     preferencias = []
     if getattr(config, "NOME", ""):
@@ -128,7 +128,7 @@ def _montar_system() -> str:
     if getattr(config, "PROJETO", ""):
         preferencias.append(f"- projeto: {config.PROJETO}")
     bloco_pref = "\n".join(preferencias)
-    memorias = ferramentas.memoria_contexto()
+    memorias = ferramentas.memoria_contexto(consulta=consulta)
     base = SYSTEM
     if str(getattr(config, "MOTOR", "")).lower() == "local":
         base += "\n" + REFORCO_LOCAL
@@ -306,9 +306,10 @@ def rodar(motor_chamar, pol: permissao.Politica, historico: list, pergunta: str)
     de mensagens da conversa (sem o system); é mutada in-place, então persiste
     entre os turnos do REPL — é isso que dá memória de curto prazo ao agente.
     `pol` é a política de permissões da sessão."""
-    system_msg = {"role": "system", "content": _montar_system()}
     historico.append({"role": "user", "content": pergunta})
     for _ in range(config.MAX_ITER):
+        contexto = "\n".join(m.get("content", "") for m in historico[-6:])
+        system_msg = {"role": "system", "content": _montar_system(consulta=contexto)}
         mensagens = [system_msg] + _janela(historico)
         with console.status("[cyan]pensando...", spinner="dots"):
             texto = motor_chamar(mensagens)
@@ -463,6 +464,9 @@ def _comando_especial(motor_chamar, pool, pol: permissao.Politica, historico: li
             "[cyan]/permissoes[/cyan]  mostra modo e a lista 'sempre permitir'\n"
             "[cyan]/memoria[/cyan]     mostra o que o HRX CODE já lembra\n"
             "[cyan]/memoria modo[/cyan] mostra/troca o modo da memória\n"
+            "[cyan]/memoria compacta[/cyan] mostra a memória compacta\n"
+            "[cyan]/memoria resumir[/cyan] atualiza o resumo da memória\n"
+            "[cyan]/memoria limpar[/cyan] limpa memória e resumo\n"
             "[cyan]/novo[/cyan]        começa uma conversa nova (esquece o contexto)\n"
             "[cyan]/limpar[/cyan]      limpa a tela\n"
             "[cyan]/sair[/cyan]        encerra",
@@ -536,6 +540,21 @@ def _comando_especial(motor_chamar, pool, pol: permissao.Politica, historico: li
                 console.print(f"  [green]✓[/green] memória no prompt: [cyan]{novo}[/cyan]")
             else:
                 console.print("  [red]modo inválido[/red] — use: compacta · completa")
+            return True
+        if partes and len(partes) > 1 and partes[1] == "compacta":
+            console.print(Panel(ferramentas.memoria_contexto(),
+                                title="🧠 memória compacta", border_style="grey37", padding=(0, 2)))
+            return True
+        if partes and len(partes) > 1 and partes[1] == "limpar":
+            console.print(ferramentas.memoria_limpar())
+            return True
+        if partes and len(partes) > 1 and partes[1] == "resumir":
+            console.print(Panel(ferramentas.memoria_resumir(),
+                                title="🧠 resumo da memória", border_style="grey37", padding=(0, 2)))
+            return True
+        if partes and len(partes) > 2 and partes[1] == "listar" and partes[2] == "compacta":
+            console.print(Panel(ferramentas.memoria_contexto(),
+                                title="🧠 memória compacta", border_style="grey37", padding=(0, 2)))
             return True
         console.print(Panel(ferramentas.memoria_listar(),
                             title="🧠 memória", border_style="grey37", padding=(0, 2)))

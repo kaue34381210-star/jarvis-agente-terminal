@@ -80,6 +80,9 @@ arquivo junto com o README para manter o histórico útil.
 - `COMANDOS_PERMITIDOS` — comandos tratados como seguros pela política
 - `MEMORIA_PROMPT` — modo da memória no prompt (`compacta` por padrão)
 - `/memoria modo compacta|completa` — alterna o modo de carregamento da memória
+- `/memoria compacta` — mostra a visão curta da memória
+- `/memoria resumir` — força a compactação/resumo da memória
+- `/memoria limpar` — apaga memória e resumo salvos
 
 ## Arquitetura
 

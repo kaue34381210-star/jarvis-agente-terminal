@@ -28,6 +28,10 @@ def _garantir() -> None:
     os.makedirs(config.DADOS, exist_ok=True)
 
 
+def _arquivo_resumo() -> str:
+    return os.path.join(config.DADOS, "memoria_resumo.txt")
+
+
 def ler_arquivo(caminho: str, inicio: int = None, fim: int = None) -> str:
     """Lê um arquivo do PROJETO (config.REPO). Opcional: intervalo de linhas
     [inicio, fim] (1-based). Retorna com números de linha p/ facilitar edições."""
@@ -349,9 +353,89 @@ def _gravar_memoria(itens: list) -> None:
         json.dump(itens, f, ensure_ascii=False, indent=2)
 
 
+def _gravar_memoria_raw(itens: list) -> None:
+    _garantir()
+    with open(config.MEMORIA, "w", encoding="utf-8") as f:
+        json.dump(itens, f, ensure_ascii=False, indent=2)
+
+
+def _gravar_resumo(texto: str) -> None:
+    _garantir()
+    with open(_arquivo_resumo(), "w", encoding="utf-8") as f:
+        f.write((texto or "").strip())
+
+
+def _ler_resumo() -> str:
+    try:
+        with open(_arquivo_resumo(), "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def _relevancia_memoria(item: dict, consulta: str = "") -> int:
+    """Pontua memórias pelo tipo, recência e sobreposição com a conversa atual."""
+    tipo = str(item.get("tipo", "fato")).strip().lower()
+    pesos = {
+        "decisao": 120,
+        "projeto": 100,
+        "preferencia": 90,
+        "comando": 80,
+        "fato": 60,
+        "resumo": 50,
+    }
+    score = pesos.get(tipo, 40)
+    texto = str(item.get("texto", "")).lower()
+    consulta = (consulta or "").lower()
+    for termo in consulta.split():
+        if len(termo) > 3 and termo in texto:
+            score += 8
+    try:
+        score += min(20, int(item.get("id", 0)) // 3)
+    except (TypeError, ValueError):
+        pass
+    return score
+
+
+def _resumir_memorias(itens: list) -> str:
+    selecionadas = itens[:max(1, int(config.MEMORIA_PROMPT_RESUMO_ITENS))]
+    linhas = []
+    total = 0
+    for m in selecionadas:
+        texto = " ".join(str(m.get("texto", "")).strip().split())
+        if len(texto) > 160:
+            texto = texto[:157] + "..."
+        linha = f"- [{m.get('tipo', 'fato')}] {texto}"
+        if total + len(linha) > config.MEMORIA_PROMPT_RESUMO_CHARS and linhas:
+            break
+        linhas.append(linha)
+        total += len(linha)
+    return "\n".join(linhas)
+
+
+def _compactar_memoria() -> None:
+    itens = _ler_memoria()
+    if len(itens) <= max(1, int(config.MEMORIA_PROMPT_RESUMO_A_PARTIR)):
+        return
+    itens = sorted(itens, key=lambda m: int(m.get("id", 0)) or 0)
+    manter = max(1, int(config.MEMORIA_PROMPT_MAX_ITENS))
+    antigos = itens[:-manter]
+    novos = itens[-manter:]
+    resumo_atual = _ler_resumo()
+    partes = [p for p in [resumo_atual, _resumir_memorias(antigos)] if p]
+    resumo = "\n\n".join(partes).strip()
+    if resumo:
+        _gravar_resumo(resumo)
+    _gravar_memoria_raw(novos)
+
+
 def carregar_memorias() -> list:
     """Lista de memórias, usada pelo agente para injetar no contexto."""
-    return _ler_memoria()
+    memorias = _ler_memoria()
+    resumo = _ler_resumo()
+    if resumo:
+        memorias = [{"id": 0, "tipo": "resumo", "texto": resumo}] + memorias
+    return memorias
 
 
 def _prioridade_memoria(item: dict) -> tuple:
@@ -367,21 +451,26 @@ def _prioridade_memoria(item: dict) -> tuple:
     return (pesos.get(tipo, 9), -(int(item.get("id", 0)) or 0))
 
 
-def memoria_contexto(max_itens: int = None, max_chars: int = None) -> str:
+def memoria_contexto(max_itens: int = None, max_chars: int = None, consulta: str = "") -> str:
     """Versão compacta da memória para uso no prompt.
     Mantém poucas memórias e corta textos longos para economizar contexto."""
-    itens = _ler_memoria()
+    itens = carregar_memorias()
     if not itens:
         return "(nenhuma memória guardada)"
     if str(getattr(config, "MEMORIA_PROMPT", "compacta")).strip().lower() == "completa":
         return "\n".join(
             f"- #{m.get('id', '?')} [{m.get('tipo', 'fato')}] "
             f"{' '.join(str(m.get('texto', '')).strip().split())}"
-            for m in sorted(itens, key=_prioridade_memoria)
+            for m in sorted(itens, key=lambda x: (_prioridade_memoria(x), -len(str(x.get("texto", "")))))
         )
     limite_itens = max_itens if max_itens is not None else config.MEMORIA_PROMPT_MAX_ITENS
     limite_chars = max_chars if max_chars is not None else config.MEMORIA_PROMPT_MAX_CHARS
-    ordenadas = sorted(itens, key=_prioridade_memoria)
+    contexto = consulta or " ".join(str(m.get("texto", "")) for m in itens[-3:])
+    ordenadas = sorted(
+        itens,
+        key=lambda m: (_relevancia_memoria(m, contexto), _prioridade_memoria(m)),
+        reverse=True,
+    )
     selecionadas = ordenadas[:max(1, int(limite_itens))]
     linhas = []
     total = 0
@@ -411,16 +500,37 @@ def memoria_salvar(texto: str, tipo: str = "fato") -> str:
     itens.append({"id": novo_id, "ts": datetime.date.today().isoformat(),
                   "tipo": (tipo or "fato").strip(), "texto": texto})
     _gravar_memoria(itens)
+    _compactar_memoria()
     return f"OK: memória #{novo_id} guardada ({tipo})."
 
 
 def memoria_listar() -> str:
     """Lista tudo que o agente já guardou na memória."""
-    itens = _ler_memoria()
+    itens = carregar_memorias()
     if not itens:
         return "(nenhuma memória guardada)"
     return "\n".join(f"#{m['id']} [{m.get('tipo', 'fato')}] {m['texto']}"
                      for m in itens)
+
+
+def memoria_contexto_compacto() -> str:
+    return memoria_contexto()
+
+
+def memoria_resumir() -> str:
+    _compactar_memoria()
+    resumo = _ler_resumo()
+    return resumo or "(nenhum resumo disponível)"
+
+
+def memoria_limpar() -> str:
+    _garantir()
+    for arq in (config.MEMORIA, _arquivo_resumo()):
+        try:
+            os.remove(arq)
+        except OSError:
+            pass
+    return "OK: memória e resumo limpos."
 
 
 def memoria_esquecer(alvo: str) -> str:
@@ -483,6 +593,8 @@ REGISTRO = {
     "memoria_salvar": memoria_salvar,
     "memoria_listar": memoria_listar,
     "memoria_esquecer": memoria_esquecer,
+    "memoria_resumir": memoria_resumir,
+    "memoria_limpar": memoria_limpar,
     "buscar_docs": buscar_docs,
 }
 
