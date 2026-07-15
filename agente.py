@@ -503,12 +503,14 @@ def _comando_especial(motor_chamar, pool, pol: permissao.Politica, historico: li
             "[cyan]/memoria limpar[/cyan] limpa memória e resumo\n"
             "[cyan]/novo[/cyan]        começa uma conversa nova (esquece o contexto)\n"
             "[cyan]/limpar[/cyan]      limpa a tela\n"
-            "[cyan]/sair[/cyan]        encerra",
+            "[cyan]/sair[/cyan]        encerra\n\n"
+            "[dim]Motor local: use [/dim][cyan]./iniciar-qwen.sh[/cyan][dim] e, se preciso, [/dim]"
+            "[cyan]HRX_LLAMAFILE[/cyan][dim] / [/dim][cyan]HRX_MODELO_GGUF[/cyan][dim].[/dim]",
             title="comandos", border_style="grey37", padding=(0, 2)))
         return True
     if cmd == "/config":
         _configurar_motor()
-        console.print("  [dim]A nova configuração será usada na próxima vez que abrir o HRX CODE.[/dim]")
+        console.print("  [dim]A nova configuração foi salva. Reinicie o HRX CODE para aplicar.[/dim]")
         return True
     if cmd == "/perfil":
         _mostrar_perfil()
