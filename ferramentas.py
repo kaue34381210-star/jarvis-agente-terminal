@@ -128,7 +128,7 @@ def buscar_codigo(padrao: str, caminho: str = ".", ext: str = None) -> str:
 def rodar_comando(comando: str) -> str:
     # A barreira real é o gate humano 🟢🟡🔴 em agente.py, que classifica a
     # STRING completa (incluindo pipes/redirecionamentos). Aqui executamos no
-    # diretório de onde o jarvis foi chamado (config.REPO) — igual ao git — e
+    # diretório de onde o hrx foi chamado (config.REPO) — igual ao git — e
     # via shell, pra que pipe/redirect/glob/&& funcionem de verdade.
     comando = comando.strip()
     if not comando:
@@ -165,7 +165,7 @@ def git(args: str = "") -> str:
                 "Use a forma 'git <subcomando> ...'.")
     if not os.path.isdir(os.path.join(config.REPO, ".git")):
         return (f"ERRO: {config.REPO} não é um repositório git "
-                f"(rode o jarvis dentro de um projeto, ou use 'init').")
+                f"(rode o hrx dentro de um projeto, ou use 'init').")
     try:
         r = subprocess.run(["git", *partes], cwd=config.REPO, capture_output=True,
                            text=True, timeout=config.TIMEOUT_COMANDO)

@@ -2,10 +2,10 @@
 # Inicia o Qwen GGUF com o servidor HTTP compatível com OpenAI do llamafile.
 set -euo pipefail
 
-LLAMAFILE="${JARVIS_LLAMAFILE:-$HOME/agente-ia/bin/llamafile}"
-MODELO="${JARVIS_MODELO_GGUF:-$HOME/agente-ia/bin/modelo.gguf}"
-PORTA="${JARVIS_PORTA:-8080}"
-CONTEXTO="${JARVIS_CONTEXTO:-4096}"
+LLAMAFILE="${HRX_LLAMAFILE:-$HOME/agente-ia/bin/llamafile}"
+MODELO="${HRX_MODELO_GGUF:-$HOME/agente-ia/bin/modelo.gguf}"
+PORTA="${HRX_PORTA:-8080}"
+CONTEXTO="${HRX_CONTEXTO:-4096}"
 
 if [ ! -x "$LLAMAFILE" ]; then
     echo "Erro: llamafile não encontrado ou não executável: $LLAMAFILE" >&2

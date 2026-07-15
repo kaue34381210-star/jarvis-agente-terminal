@@ -23,7 +23,7 @@ console = Console()
 
 SYSTEM = """Você é um agente de IA de terminal que também é um AGENTE DE CÓDIGO:
 lê, escreve e edita os arquivos do PROJETO do usuário (o diretório de onde o
-jarvis foi chamado), roda comandos e versiona com git. Trabalhe como um bom
+hrx foi chamado), roda comandos e versiona com git. Trabalhe como um bom
 engenheiro: primeiro ENTENDA o projeto (liste, busque, leia os arquivos
 relevantes) e só então edite; faça mudanças pequenas e verificáveis.
 
@@ -109,35 +109,49 @@ MASCARA = r"""
 ⠀⠈⠉⠉⠉⠰⣿⠿⠀⠱⢝⢿⣿⠀⠀⢸⣿⣿⣿⣿⣿⣿⠀⢿⣧⣿⣿⣿⢟⠉⠩⣲⢄⣰⣿⣿⣾⡇⠀⠉⠛⠛⠛⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀"""
 
 LOGO = r"""
-       ██╗ █████╗ ██████╗ ██╗   ██╗██╗███████╗
-       ██║██╔══██╗██╔══██╗██║   ██║██║██╔════╝
-       ██║███████║██████╔╝██║   ██║██║███████╗
-  ██   ██║██╔══██║██╔══██╗╚██╗ ██╔╝██║╚════██║
-  ╚█████╔╝██║  ██║██║  ██║ ╚████╔╝ ██║███████║
-   ╚════╝ ╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝  ╚═╝╚══════╝"""
+     ██╗  ██╗██████╗ ██╗  ██╗
+     ██║  ██║██╔══██╗╚██╗██╔╝
+     ███████║██████╔╝ ╚███╔╝
+     ██╔══██║██╔══██╗ ██╔██╗
+     ██║  ██║██║  ██║██╔╝ ██╗
+     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝"""
 
 
 def banner(rotulo_motor: str, n_memorias: int = 0) -> None:
     console.print(Text(MASCARA, style="bold red3"))
     console.print(Text(LOGO, style="bold gold1"))
     console.print(
-        "  [bold gold1]J[/]ust [bold gold1]A[/] [bold gold1]R[/]ather "
-        "[bold gold1]V[/]ery [bold gold1]I[/]ntelligent [bold gold1]S[/]ystem"
-        "   [dim italic]— às suas ordens, senhor.[/]")
+        "  [bold gold1]HRX CODE[/]"
+        "   [dim italic]— seu agente de IA no terminal.[/]")
     mem = f" · [dim]{n_memorias} memória(s)[/dim]" if n_memorias else ""
+    projeto = f" · [dim]{config.PROJETO}[/dim]" if getattr(config, "PROJETO", "") else ""
     console.print(f"  [dim]{rotulo_motor}[/dim]{mem}"
+                  f"{projeto}"
                   f"[dim] · digite [/dim][cyan]/ajuda[/cyan][dim] para comandos[/dim]")
     console.print(Rule(style="grey30"))
 
 
 def _montar_system() -> str:
     """SYSTEM + memórias persistentes injetadas no contexto."""
+    preferencias = []
+    if getattr(config, "NOME", ""):
+        preferencias.append(f"- nome: {config.NOME}")
+    if getattr(config, "TOM", ""):
+        preferencias.append(f"- tom: {config.TOM}")
+    if getattr(config, "IDIOMA", ""):
+        preferencias.append(f"- idioma: {config.IDIOMA}")
+    if getattr(config, "PROJETO", ""):
+        preferencias.append(f"- projeto: {config.PROJETO}")
+    bloco_pref = "\n".join(preferencias)
     memorias = ferramentas.carregar_memorias()
+    base = SYSTEM
+    if bloco_pref:
+        base += "\n\nPREFERÊNCIAS DO AGENTE:\n" + bloco_pref
     if not memorias:
-        return SYSTEM
+        return base
     linhas = "\n".join(f"- #{m['id']} [{m.get('tipo', 'fato')}] {m['texto']}"
                        for m in memorias)
-    return (SYSTEM + "\n\nMEMÓRIA (o que você já sabe deste usuário/ambiente — "
+    return (base + "\n\nMEMÓRIA (o que você já sabe deste usuário/ambiente — "
             "use e respeite):\n" + linhas)
 
 
@@ -287,6 +301,11 @@ def _debug_estado(pool, pol: permissao.Politica, historico: list) -> str:
     linhas = [
         f"motor: {motor}",
         f"config: {config.ARQ_MOTOR}",
+        f"perfil: {config.ARQ_PERFIL}",
+        f"nome: {getattr(config, 'NOME', '?')}",
+        f"tom: {getattr(config, 'TOM', '?')}",
+        f"idioma: {getattr(config, 'IDIOMA', '?')}",
+        f"projeto: {getattr(config, 'PROJETO', '') or '(vazio)'}",
         f"modo de permissões: {pol.modo}",
         f"sempre permitidos: {len(pol.sempre)}",
         f"mensagens na conversa: {len(historico)}",
@@ -395,6 +414,48 @@ def _configurar_motor() -> None:
     console.print(f"  [green]✓[/green] {rotulo} configurado e salvo em [dim]{config.ARQ_MOTOR}[/dim].")
 
 
+def _mostrar_perfil() -> None:
+    dados = [
+        f"nome: [cyan]{getattr(config, 'NOME', 'HRX CODE')}[/cyan]",
+        f"tom: [cyan]{getattr(config, 'TOM', 'direto')}[/cyan]",
+        f"idioma: [cyan]{getattr(config, 'IDIOMA', 'pt-BR')}[/cyan]",
+        f"projeto: [cyan]{getattr(config, 'PROJETO', '') or '(vazio)'}[/cyan]",
+        f"arquivo: [dim]{getattr(config, 'ARQ_PERFIL', '?')}[/dim]",
+    ]
+    console.print(Panel("\n".join(dados), title="perfil do agente",
+                        border_style="grey37", padding=(0, 2)))
+
+
+def _editar_perfil() -> None:
+    atual = {
+        "nome": getattr(config, "NOME", "HRX CODE"),
+        "tom": getattr(config, "TOM", "direto"),
+        "idioma": getattr(config, "IDIOMA", "pt-BR"),
+        "projeto": getattr(config, "PROJETO", ""),
+    }
+    console.print(Panel(
+        "[cyan]1[/cyan] nome do agente\n"
+        "[cyan]2[/cyan] tom de resposta\n"
+        "[cyan]3[/cyan] idioma padrão\n"
+        "[cyan]4[/cyan] projeto atual",
+        title="⚙ perfil do agente", border_style="cyan", padding=(0, 2)))
+    nome = _perguntar(f"  nome [{atual['nome']}] › ") or atual["nome"]
+    tom = _perguntar(f"  tom [{atual['tom']}] › ") or atual["tom"]
+    idioma = _perguntar(f"  idioma [{atual['idioma']}] › ") or atual["idioma"]
+    projeto = _perguntar(f"  projeto [{atual['projeto'] or '(vazio)'}] › ") or atual["projeto"]
+
+    dados = dict(getattr(config, "_PERFIL", {}))
+    dados.update({
+        "nome": nome.strip(),
+        "tom": tom.strip().lower(),
+        "idioma": idioma.strip(),
+        "projeto": projeto.strip(),
+    })
+    config.salvar_perfil(dados)
+    importlib.reload(config)
+    console.print(f"  [green]✓[/green] perfil salvo em [dim]{config.ARQ_PERFIL}[/dim].")
+
+
 def _comando_especial(motor_chamar, pool, pol: permissao.Politica, historico: list,
                       entrada: str) -> bool:
     """Trata /comandos. `pool` é None quando o motor é local. `pol` é a política
@@ -409,12 +470,13 @@ def _comando_especial(motor_chamar, pool, pol: permissao.Politica, historico: li
         console.print(Panel(
             "[cyan]/motor[/cyan]       mostra qual motor está em uso\n"
             "[cyan]/config[/cyan]      escolhe e configura o motor de IA\n"
+            "[cyan]/perfil[/cyan]      mostra/edita nome, tom, idioma e projeto\n"
             "[cyan]/chaves[/cyan]      status das chaves (só motor gemini)\n"
             "[cyan]/debug[/cyan]       mostra o estado interno do agente\n"
             "[cyan]/resumo[/cyan]      resume a conversa atual\n"
             "[cyan]/modo[/cyan] [dim]<m>[/dim]   permissões: [dim]blindado · cauteloso · auto[/dim]\n"
             "[cyan]/permissoes[/cyan]  mostra modo e a lista 'sempre permitir'\n"
-            "[cyan]/memoria[/cyan]     mostra o que o JARVIS já lembra\n"
+            "[cyan]/memoria[/cyan]     mostra o que o HRX CODE já lembra\n"
             "[cyan]/novo[/cyan]        começa uma conversa nova (esquece o contexto)\n"
             "[cyan]/limpar[/cyan]      limpa a tela\n"
             "[cyan]/sair[/cyan]        encerra",
@@ -422,7 +484,13 @@ def _comando_especial(motor_chamar, pool, pol: permissao.Politica, historico: li
         return True
     if cmd == "/config":
         _configurar_motor()
-        console.print("  [dim]A nova configuração será usada na próxima vez que abrir o JARVIS.[/dim]")
+        console.print("  [dim]A nova configuração será usada na próxima vez que abrir o HRX CODE.[/dim]")
+        return True
+    if cmd == "/perfil":
+        _mostrar_perfil()
+        return True
+    if partes and partes[0] == "/perfil" and len(partes) > 1 and partes[1] in ("editar", "set", "ajustar"):
+        _editar_perfil()
         return True
     if cmd == "/debug":
         console.print(Panel(
@@ -509,7 +577,7 @@ def _erro_sem_chave(rotulo: str) -> None:
         resposta = _perguntar("  configurar agora? [Enter=sim · n=não] › ").lower()
         if resposta not in ("n", "nao", "não", "no", "cancelar"):
             _configurar_motor()
-            console.print("  [dim]Abra o JARVIS novamente para usar o motor escolhido.[/dim]")
+            console.print("  [dim]Abra o HRX CODE novamente para usar o motor escolhido.[/dim]")
     sys.exit(1)
 
 
@@ -518,7 +586,7 @@ def _preparar_motor():
     pool só existe no motor gemini (failover de chaves); nos outros é None."""
     if config.MOTOR not in config.MOTORES:
         raise RuntimeError(
-            "JARVIS_MOTOR inválido: " + repr(config.MOTOR) +
+            "HRX_MOTOR inválido: " + repr(config.MOTOR) +
             ". Use um de: " + " · ".join(config.MOTORES) + ".")
 
     if config.MOTOR == "local":
@@ -550,7 +618,7 @@ def _preparar_motor():
             "Nenhuma chave encontrada.\n\n"
             "Crie o arquivo [bold]chaves.txt[/bold] (uma chave por linha), defina "
             "[bold]GEMINI_API_KEY[/bold], ou use o motor local com "
-            "[bold]JARVIS_MOTOR=local[/bold].",
+            "[bold]HRX_MOTOR=local[/bold].",
             title="[red]sem chaves", border_style="red"))
         sys.exit(1)
     pool = PoolChaves(chaves)
@@ -562,7 +630,7 @@ def main() -> None:
     motor_chamar, pool, rotulo = _preparar_motor()
     banner(rotulo, len(ferramentas.carregar_memorias()))
 
-    # política de permissões da sessão (modo via JARVIS_MODO; registra o
+    # política de permissões da sessão (modo via HRX_MODO; registra o
     # singleton que as ferramentas consultam pelo trinco).
     pol = permissao.Politica(modo=getattr(config, "MODO", "cauteloso"),
                              seguros_extra=getattr(config, "COMANDOS_PERMITIDOS", ()))

@@ -1,0 +1,32 @@
+# Memória do projeto
+
+Este arquivo guarda decisões e mudanças importantes do HRX CODE de terminal.
+Ele serve como histórico curto do projeto e deve ser atualizado sempre que o
+comportamento, os comandos ou a configuração mudarem.
+
+## Mudanças recentes
+
+- Projeto renomeado de "JARVIS" para **HRX CODE** (evitar direitos autorais da
+  Marvel). Trocado tudo: marca, logo ASCII, backronym, config dir
+  (`~/.config/hrx/`), prefixo de env vars (`HRX_`) e comandos (`hrx`,
+  `hrx-qwen`).
+- Removidos os instaladores (`instalar.sh`, `desinstalar.sh`) e toda a pasta
+  `windows/`. Agora roda direto do repo: `python agente.py`. O comando `hrx` no
+  PC é um atalho para `.venv/bin/python agente.py`.
+- Licença definida como **proprietária de uso gratuito** (`LICENSE`): livre para
+  usar e compartilhar cópias exatas, proibido modificar ou vender. Não é OSS.
+- Adicionado `/perfil` (nome, tom, idioma, projeto) persistido em
+  `~/.config/hrx/perfil.json`.
+- Adicionado `/config` para escolher e persistir o motor de IA.
+- Suporte a Gemini, ChatGPT/OpenAI, DeepSeek, Claude, Ollama e motor local.
+- Adicionados `/debug` e `/resumo` no terminal.
+- Memória persistente entre sessões com `memoria_salvar`, `memoria_listar` e
+  `memoria_esquecer`.
+- `README.md` atualizado para refletir comandos e organização do projeto.
+
+## Regra prática
+
+- Se mudar um comando, uma configuração ou o fluxo do agente, atualize este
+  arquivo.
+- Se a alteração for visível para o usuário, atualize também o `README.md`.
+- Se a mudança for pequena mas relevante, registre uma linha aqui.

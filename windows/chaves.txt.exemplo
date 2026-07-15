@@ -1,9 +1,0 @@
-# Modelo do arquivo de chaves (Windows).
-# Copie para "chaves.txt" (na mesma pasta) e cole suas chaves da API do Gemini,
-# UMA por linha. O instalador copia isso para %APPDATA%\jarvis\chaves.txt.
-#
-# Pegue suas chaves grátis em: https://aistudio.google.com/apikey
-#
-# Exemplo:
-# AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-# AIzaSyYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY

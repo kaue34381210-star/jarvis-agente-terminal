@@ -1,4 +1,4 @@
-"""Política de permissões da sessão do JARVIS.
+"""Política de permissões da sessão do HRX CODE.
 
 Junta numa camada só as quatro peças do controle de execução:
 

@@ -1,11 +1,11 @@
-# 🦾 JARVIS — agente de IA de terminal
+# 🦾 HRX CODE — agente de IA de terminal
 
 Agente de IA de terminal com motores **Gemini**, **ChatGPT/OpenAI**,
 **DeepSeek**, **Claude**, **Ollama** e **Qwen local**. Tem rotação automática
 das chaves Gemini, ferramentas para código e documentos, além de uma interface
-estilizada. Instalável como comando global `jarvis` no Linux e no Windows.
+estilizada. Roda direto do repositório com `python agente.py`.
 
-> *Just A Rather Very Intelligent System.*
+> *HRX CODE — seu agente de IA no terminal.*
 
 ## Recursos
 
@@ -24,41 +24,36 @@ estilizada. Instalável como comando global `jarvis` no Linux e no Windows.
 ## Instalação
 
 ### Pré-requisito
-Python 3.10+ (no Windows, marque *"Add python.exe to PATH"*).
+Python 3.10+.
+
+### Passos
+```bash
+git clone https://github.com/kaue34381210-star/jarvis-agente-terminal.git
+cd jarvis-agente-terminal
+python -m venv .venv && . .venv/bin/activate
+pip install rich requests openpyxl reportlab
+```
 
 ### Chaves
-Pegue chaves grátis em https://aistudio.google.com/apikey e crie o arquivo de
-chaves a partir do modelo:
+Configure o motor e a chave pelo comando `/config` dentro do chat (recomendado),
+ou, para o Gemini, crie o arquivo de chaves a partir do modelo:
 
 ```bash
-cp chaves.txt.exemplo chaves.txt   # e cole suas chaves, uma por linha
+cp chaves.txt.exemplo chaves.txt   # uma chave por linha
 ```
 
-`chaves.txt` está no `.gitignore` — nunca vai para o repositório.
-
-### Linux
-```bash
-./instalar.sh          # cria os comandos globais 'jarvis' e 'jarvis-qwen'
-jarvis-qwen            # em um terminal: inicia o Qwen local
-jarvis                 # em outro terminal: abre o chat
-```
-
-O modelo e o executável locais ficam, por padrão, em
-`~/agente-ia/bin/modelo.gguf` e `~/agente-ia/bin/llamafile`. Depois de abrir o
-JARVIS, use `/config` para escolher o motor. A escolha fica em
-`~/.config/jarvis/motor.json`; para Gemini, as chaves também podem ser mantidas
-em `~/.config/jarvis/chaves.txt`.
-
-### Windows
-Copie a pasta `windows/` (ou o zip gerado) para a máquina e dê dois cliques em
-`INSTALAR.bat`. Depois, em um novo terminal: `jarvis`.
+`chaves.txt` está no `.gitignore` — nunca vai para o repositório. A escolha de
+motor fica em `~/.config/hrx/motor.json`.
 
 ## Uso
 
 ```bash
-jarvis                 # chat interativo
-jarvis "sua tarefa"    # pergunta única (one-shot)
+python agente.py            # chat interativo
+python agente.py "tarefa"   # pergunta única (one-shot)
 ```
+
+Motor local (Qwen/llamafile), em outro terminal: `./iniciar-qwen.sh`.
+Dica: crie um atalho `hrx` apontando para `.venv/bin/python agente.py`.
 
 Comandos no chat: `/config` (escolhe e configura o motor), `/motor`, `/chaves`
 (status das chaves no Gemini), `/debug`, `/resumo`, `/limpar`, `/ajuda`,
@@ -66,9 +61,15 @@ Comandos no chat: `/config` (escolhe e configura o motor), `/motor`, `/chaves`
 
 Use `/config` para selecionar Gemini, ChatGPT/OpenAI, DeepSeek, Claude, Ollama
 ou o Qwen/llamafile local. A configuração, incluindo chaves, fica em
-`~/.config/jarvis/motor.json` com permissão restrita; reinicie o JARVIS após
+`~/.config/hrx/motor.json` com permissão restrita; reinicie o HRX CODE após
 salvar para aplicar o novo motor. Se faltar uma chave, o assistente oferece a
 configuração ao iniciar.
+
+## Memória do projeto
+
+As decisões e mudanças importantes deste agente ficam registradas em
+[`MEMORIA.md`](MEMORIA.md). Sempre que o comportamento mudar, atualize esse
+arquivo junto com o README para manter o histórico útil.
 
 ## Configuração (`config.py`)
 
@@ -88,7 +89,6 @@ iniciar-qwen.sh  inicia o llamafile com o modelo GGUF
 ferramentas.py   ferramentas sandboxed
 config.py        configuração
 teste_failover.py  simula o failover sem gastar quota
-instalar.sh / windows/INSTALAR.bat   instaladores
 ```
 
 Teste o failover sem consumir API:
@@ -111,4 +111,8 @@ python teste_local.py
 
 ## Licença
 
-MIT.
+**Uso gratuito, proprietária.** Você pode usar e compartilhar cópias exatas do
+HRX CODE de graça, mas **não pode modificar nem vender**. Não é software de
+código aberto. Veja os termos completos em [`LICENSE`](LICENSE).
+
+© 2026 Kauê. Todos os direitos reservados.

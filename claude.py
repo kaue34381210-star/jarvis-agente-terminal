@@ -1,5 +1,5 @@
 """Adaptador para a API da Anthropic (Claude) — endpoint Messages, via HTTP
-puro (requests), coerente com os outros motores do JARVIS (sem SDK).
+puro (requests), coerente com os outros motores do HRX CODE (sem SDK).
 
 Doc oficial: POST https://api.anthropic.com/v1/messages
   headers: x-api-key, anthropic-version: 2023-06-01, content-type: json
