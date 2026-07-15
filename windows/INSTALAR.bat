@@ -33,6 +33,7 @@ echo Copiando codigo...
 copy /y "%SRC%config.py"      "%DEST%\" >nul
 copy /y "%SRC%ferramentas.py" "%DEST%\" >nul
 copy /y "%SRC%gemini.py"      "%DEST%\" >nul
+copy /y "%SRC%local.py"       "%DEST%\" >nul
 copy /y "%SRC%aprovacao.py"   "%DEST%\" >nul
 copy /y "%SRC%agente.py"      "%DEST%\" >nul
 

@@ -16,8 +16,16 @@ BASE = _base()
 # --- Identidade ---
 NOME = os.environ.get("AGENTE_NOME", "JARVIS")   # troque à vontade
 
+# --- Seleção de motor: 'gemini' (API + failover) ou 'local' (Qwen self-hosted) ---
+MOTOR = os.environ.get("JARVIS_MOTOR", "gemini").strip().lower()
+
 # --- Motor Gemini ---
 MODELO = os.environ.get("GEMINI_MODELO", "gemini-2.0-flash")
+
+# --- Motor local (llama.cpp/llamafile servindo um .gguf; endpoint estilo OpenAI) ---
+LOCAL_URL = os.environ.get("JARVIS_LOCAL_URL", "http://127.0.0.1:8080/v1/chat/completions")
+MODELO_LOCAL = os.environ.get("JARVIS_MODELO_LOCAL", "Qwen2.5-7B-Instruct")
+LOCAL_TIMEOUT = int(os.environ.get("JARVIS_LOCAL_TIMEOUT", "180"))  # 7B é lento
 
 
 def _arq_chaves() -> str:

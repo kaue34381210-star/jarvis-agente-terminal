@@ -1,7 +1,7 @@
 # 🦾 JARVIS — agente de IA de terminal
 
-Agente de IA que roda no terminal, movido pela **API do Gemini**, com
-**rotação automática de chaves** (failover), **ferramentas** (arquivos,
+Agente de IA que roda no terminal, movido pelo **Qwen local** ou pela **API do
+Gemini**, com **rotação automática de chaves** (failover), **ferramentas** (arquivos,
 planilhas, PDFs) e interface estilizada. Instalável como comando global
 `jarvis` no Linux e no Windows.
 
@@ -17,6 +17,7 @@ planilhas, PDFs) e interface estilizada. Instalável como comando global
   - `rodar_comando` (whitelist de segurança), `buscar_docs` (RAG simples)
 - **Sandbox:** o agente só lê/escreve dentro de `workspace/` e lê `dados/`.
 - **UI:** banner ASCII, cores e respostas em markdown (via `rich`).
+- **Motor local:** Qwen2.5 GGUF em `llamafile`, sem chave, cota ou internet.
 
 ## Instalação
 
@@ -35,9 +36,17 @@ cp chaves.txt.exemplo chaves.txt   # e cole suas chaves, uma por linha
 
 ### Linux
 ```bash
-./instalar.sh          # cria o comando global 'jarvis'
-jarvis                 # abre o chat
+./instalar.sh          # cria os comandos globais 'jarvis' e 'jarvis-qwen'
+jarvis-qwen            # em um terminal: inicia o Qwen local
+jarvis                 # em outro terminal: abre o chat
 ```
+
+O instalador configura o Qwen local como padrão em `~/.config/jarvis/ambiente`.
+O modelo e o executável ficam, por padrão, em `~/agente-ia/bin/modelo.gguf` e
+`~/agente-ia/bin/llamafile`. Ajuste esses caminhos nesse arquivo caso necessário.
+
+Para voltar ao Gemini, troque `JARVIS_MOTOR=local` por `JARVIS_MOTOR=gemini` em
+`~/.config/jarvis/ambiente` e preencha `~/.config/jarvis/chaves.txt`.
 
 ### Windows
 Copie a pasta `windows/` (ou o zip gerado) para a máquina e dê dois cliques em
@@ -50,7 +59,8 @@ jarvis                 # chat interativo
 jarvis "sua tarefa"    # pergunta única (one-shot)
 ```
 
-Comandos no chat: `/chaves` (status das chaves), `/limpar`, `/ajuda`, `/sair`.
+Comandos no chat: `/motor`, `/chaves` (status das chaves no Gemini), `/limpar`,
+`/ajuda`, `/sair`.
 
 ## Configuração (`config.py`)
 
@@ -63,6 +73,8 @@ Comandos no chat: `/chaves` (status das chaves), `/limpar`, `/ajuda`, `/sair`.
 ```
 agente.py        loop ReAct + interface (rich)
 gemini.py        cliente Gemini + pool de chaves com failover
+local.py         cliente do endpoint OpenAI-compatível local
+iniciar-qwen.sh  inicia o llamafile com o modelo GGUF
 ferramentas.py   ferramentas sandboxed
 config.py        configuração
 teste_failover.py  simula o failover sem gastar quota
@@ -72,6 +84,11 @@ instalar.sh / windows/INSTALAR.bat   instaladores
 Teste o failover sem consumir API:
 ```bash
 python teste_failover.py
+```
+
+Teste o adaptador local sem carregar o modelo:
+```bash
+python teste_local.py
 ```
 
 ## Segurança
