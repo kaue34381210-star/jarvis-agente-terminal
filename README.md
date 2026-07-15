@@ -61,7 +61,8 @@ jarvis "sua tarefa"    # pergunta única (one-shot)
 ```
 
 Comandos no chat: `/config` (escolhe e configura o motor), `/motor`, `/chaves`
-(status das chaves no Gemini), `/limpar`, `/ajuda`, `/sair`.
+(status das chaves no Gemini), `/debug`, `/resumo`, `/limpar`, `/ajuda`,
+`/sair`.
 
 Use `/config` para selecionar Gemini, ChatGPT/OpenAI, DeepSeek, Claude, Ollama
 ou o Qwen/llamafile local. A configuração, incluindo chaves, fica em

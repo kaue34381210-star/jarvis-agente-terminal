@@ -233,6 +233,69 @@ def _janela(historico: list) -> list:
     return list(reversed(mantidos))
 
 
+def _resumir_conversa(motor_chamar, historico: list, limite_turnos: int = 12) -> str:
+    """Pede ao motor atual um resumo curto e factual da conversa recente."""
+    if not historico:
+        return "(não há conversa para resumir)"
+
+    trecho = _janela(historico[-max(2, limite_turnos):])
+    mensagens = [
+        {
+            "role": "system",
+            "content": (
+                "Resuma a conversa de forma curta, objetiva e factual. "
+                "Não invente nada. Destaque objetivo atual, decisões, pendências, "
+                "erros importantes e próximos passos. Responda em português, "
+                "de preferência em tópicos."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                "Resuma o trecho abaixo:\n\n"
+                + "\n".join(
+                    f"{m.get('role', '?')}: {m.get('content', '')}"
+                    for m in trecho
+                )
+            ),
+        },
+    ]
+    texto = motor_chamar(mensagens)
+    return texto.strip() or "(resumo vazio)"
+
+
+def _debug_estado(pool, pol: permissao.Politica, historico: list) -> str:
+    """Monta um snapshot legível do estado atual do agente."""
+    memoria = ferramentas.carregar_memorias()
+    p = None if config.MOTOR in ("gemini", "local") else config.provedor(config.MOTOR)
+    if config.MOTOR == "gemini":
+        motor = f"gemini · {config.MODELO} · {pool.n if pool else 0} chave(s)"
+    elif config.MOTOR == "local":
+        estado = "no ar" if local.disponivel() else "fora do ar"
+        motor = f"local · {config.MODELO_LOCAL} · {config.LOCAL_URL} ({estado})"
+    elif p:
+        chave = "ok" if p.get("chave") else "ausente"
+        motor = f"{config.MOTOR} · {p.get('modelo', '?')} · chave {chave}"
+    else:
+        motor = config.MOTOR
+
+    ultima = historico[-1]["content"] if historico else "(sem mensagens)"
+    ultima = ultima.replace("\n", " ")
+    if len(ultima) > 120:
+        ultima = ultima[:117] + "..."
+
+    linhas = [
+        f"motor: {motor}",
+        f"config: {config.ARQ_MOTOR}",
+        f"modo de permissões: {pol.modo}",
+        f"sempre permitidos: {len(pol.sempre)}",
+        f"mensagens na conversa: {len(historico)}",
+        f"memórias salvas: {len(memoria)}",
+        f"última mensagem: {ultima}",
+    ]
+    return "\n".join(linhas)
+
+
 def rodar(motor_chamar, pol: permissao.Politica, historico: list, pergunta: str) -> str:
     """Executa um turno do usuário mantendo o HISTÓRICO da conversa.
     `motor_chamar(mensagens) -> texto` (Gemini ou local). `historico` é a lista
@@ -332,7 +395,7 @@ def _configurar_motor() -> None:
     console.print(f"  [green]✓[/green] {rotulo} configurado e salvo em [dim]{config.ARQ_MOTOR}[/dim].")
 
 
-def _comando_especial(pool, pol: permissao.Politica, historico: list,
+def _comando_especial(motor_chamar, pool, pol: permissao.Politica, historico: list,
                       entrada: str) -> bool:
     """Trata /comandos. `pool` é None quando o motor é local. `pol` é a política
     de permissões, `historico` a conversa atual (mutável). Retorna True se
@@ -347,6 +410,8 @@ def _comando_especial(pool, pol: permissao.Politica, historico: list,
             "[cyan]/motor[/cyan]       mostra qual motor está em uso\n"
             "[cyan]/config[/cyan]      escolhe e configura o motor de IA\n"
             "[cyan]/chaves[/cyan]      status das chaves (só motor gemini)\n"
+            "[cyan]/debug[/cyan]       mostra o estado interno do agente\n"
+            "[cyan]/resumo[/cyan]      resume a conversa atual\n"
             "[cyan]/modo[/cyan] [dim]<m>[/dim]   permissões: [dim]blindado · cauteloso · auto[/dim]\n"
             "[cyan]/permissoes[/cyan]  mostra modo e a lista 'sempre permitir'\n"
             "[cyan]/memoria[/cyan]     mostra o que o JARVIS já lembra\n"
@@ -358,6 +423,22 @@ def _comando_especial(pool, pol: permissao.Politica, historico: list,
     if cmd == "/config":
         _configurar_motor()
         console.print("  [dim]A nova configuração será usada na próxima vez que abrir o JARVIS.[/dim]")
+        return True
+    if cmd == "/debug":
+        console.print(Panel(
+            _debug_estado(pool, pol, historico),
+            title="debug", border_style="grey37", padding=(0, 2)))
+        return True
+    if partes and partes[0] == "/resumo":
+        limite = 12
+        if len(partes) > 1 and partes[1].isdigit():
+            limite = max(2, min(24, int(partes[1])))
+        resumo = _resumir_conversa(motor_chamar, historico, limite_turnos=limite)
+        console.print(Panel(
+            resumo,
+            title=f"resumo da conversa (últimos {limite} turnos)",
+            border_style="grey37",
+            padding=(0, 2)))
         return True
     if cmd in ("/novo", "/reset"):
         historico.clear()
@@ -510,7 +591,7 @@ def main() -> None:
         if not entrada:
             continue
         try:
-            if _comando_especial(pool, pol, historico, entrada):
+            if _comando_especial(motor_chamar, pool, pol, historico, entrada):
                 continue
             resposta = rodar(motor_chamar, pol, historico, entrada)
             console.print()
