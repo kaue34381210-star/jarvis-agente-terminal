@@ -117,6 +117,8 @@ resposta final.
 ## Capacidades
 
 - Navegação, leitura, busca e edição de código com números de linha.
+- Fluxo de engenharia que lê o contexto antes de editar, preserva mudanças do
+  usuário e valida o resultado com os testes e verificações definidos no projeto.
 - Execução de shell e operações Git no diretório do projeto.
 - Criação de planilhas Excel e documentos PDF.
 - Consulta de CVEs na API do NVD e leitura de páginas públicas.

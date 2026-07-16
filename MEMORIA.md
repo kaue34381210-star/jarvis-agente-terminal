@@ -6,6 +6,13 @@ comportamento, os comandos ou a configuração mudarem.
 
 ## Mudanças recentes
 
+- Prompt de sistema revisado para tornar o agente mais conciso e autônomo em
+  ações seguras, exigir leitura do contexto e respeito às convenções antes de
+  editar, validar mudanças com testes e ferramentas do projeto, preservar
+  alterações existentes e impedir operações Git mutantes sem pedido explícito.
+- Política de segurança do prompt reforçada para aceitar somente atividades
+  defensivas, educacionais ou de CTF autorizado, com recusa breve e alternativa
+  segura para solicitações ofensivas.
 - Código-fonte organizado em `src/hrx_code`, com imports relativos, execução
   por `python -m hrx_code` e comando oficial `hrx` definido no pacote.
 - Projeto empacotado via `pyproject.toml`, com dependências declaradas e versão
