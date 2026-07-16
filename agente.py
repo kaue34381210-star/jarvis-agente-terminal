@@ -19,6 +19,7 @@ import local
 import openai_compat
 import permissao
 from gemini import PoolChaves, carregar_chaves, chamar
+from versao import __version__
 
 console = Console()
 
@@ -747,6 +748,21 @@ def _preparar_motor():
 
 
 def main() -> None:
+    args_cli = sys.argv[1:]
+    if args_cli == ["--version"]:
+        console.print(f"HRX CODE {__version__}")
+        return
+    if args_cli and args_cli[0] in ("-h", "--help"):
+        console.print(
+            "HRX CODE — agente de IA no terminal\n\n"
+            "Uso:\n"
+            "  hrx                 abre o chat interativo\n"
+            "  hrx \"tarefa\"       executa uma tarefa única\n"
+            "  hrx --version       mostra a versão instalada\n"
+            "  hrx --help          mostra esta ajuda"
+        )
+        return
+
     motor_chamar, pool, rotulo = _preparar_motor()
     banner(rotulo, len(ferramentas.carregar_memorias()))
 

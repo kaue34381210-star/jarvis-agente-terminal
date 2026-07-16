@@ -6,6 +6,9 @@ comportamento, os comandos ou a configuração mudarem.
 
 ## Mudanças recentes
 
+- Projeto empacotado via `pyproject.toml`, com dependências declaradas, versão
+  única em `versao.py` e comando oficial `hrx`; dados persistentes foram
+  movidos para `~/.config/hrx/` para sobreviver a upgrades do pacote.
 - Caminhos agora são canonizados antes do uso: leituras bloqueiam escapes por
   `..` e links simbólicos, enquanto escritas fora do projeto são sempre risco
   vermelho e exigem confirmação explícita, inclusive no modo automático.

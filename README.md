@@ -3,8 +3,8 @@
 Agente de IA de terminal com motor padrão **local** e suporte a
 **Gemini**, **ChatGPT/OpenAI**, **DeepSeek**, **Claude** e **Ollama**.
 Tem rotação automática das chaves Gemini, ferramentas para código e documentos,
-além de uma interface estilizada. Roda direto do repositório com
-`python agente.py`.
+além de uma interface estilizada. Instalado como pacote, disponibiliza o
+comando `hrx` no ambiente Python.
 
 > *HRX CODE — seu agente de IA no terminal.*
 
@@ -35,7 +35,8 @@ Python 3.10+.
 git clone https://github.com/kaue34381210-star/hrx-code.git
 cd hrx-code
 python -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt
+python -m pip install .
+hrx --version
 ```
 
 ### Chaves
@@ -52,14 +53,15 @@ motor fica em `~/.config/hrx/motor.json`.
 ## Uso
 
 ```bash
-python agente.py            # chat interativo
-python agente.py "tarefa"   # pergunta única (one-shot)
+hrx                         # chat interativo
+hrx "tarefa"                # pergunta única (one-shot)
+hrx --help                  # ajuda da linha de comando
 ```
 
 Dica para subir o motor local em outro terminal: `./iniciar-qwen.sh`.
 Se o `llamafile` ou o `.gguf` estiverem em outro lugar, defina
 `HRX_LLAMAFILE` e `HRX_MODELO_GGUF`.
-Dica: crie um atalho `hrx` apontando para `.venv/bin/python agente.py`.
+Para desenvolvimento, `python agente.py` continua disponível sem instalação.
 
 Comandos no chat: `/config` (escolhe e configura o motor), `/motor`, `/chaves`
 (status das chaves no Gemini), `/debug`, `/resumo`, `/limpar`, `/ajuda`,
@@ -70,6 +72,9 @@ ou o Qwen/llamafile local. O padrão inicial é o motor local. A configuração,
 incluindo chaves, fica em `~/.config/hrx/motor.json` com permissão restrita;
 reinicie o HRX CODE após salvar para aplicar o novo motor. Se faltar uma
 chave, o assistente oferece a configuração ao iniciar.
+
+Memórias, documentos internos e o workspace persistente ficam em
+`~/.config/hrx/dados/` e `~/.config/hrx/workspace/`, sobrevivendo a upgrades.
 
 ## Memória do projeto
 
@@ -92,6 +97,8 @@ arquivo junto com o README para manter o histórico útil.
 
 ```
 agente.py        loop ReAct + interface (rich)
+pyproject.toml   pacote, dependências e comando `hrx`
+versao.py        versão pública do pacote e da CLI
 gemini.py        cliente Gemini + pool de chaves com failover
 local.py         cliente do endpoint OpenAI-compatível local
 openai_compat.py adaptador para OpenAI, DeepSeek e Ollama
@@ -106,7 +113,7 @@ tests/            suíte automatizada com pytest
 
 Instale as dependências de desenvolvimento e rode a suíte completa:
 ```bash
-pip install -r requirements-dev.txt
+pip install ".[dev]"
 python -m pytest
 ```
 

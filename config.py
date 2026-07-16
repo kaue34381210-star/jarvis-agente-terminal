@@ -184,9 +184,11 @@ MAX_ITER = int(os.environ.get("HRX_MAX_ITER", "20"))  # passos do ReAct (código
 # limite pra não estourar o contexto do modelo (o local roda com -c 4096). ---
 CONTEXTO_MAX_CHARS = int(os.environ.get("HRX_CONTEXTO_MAX_CHARS", "12000"))
 
-# --- Áreas internas para artefatos e memória (configuráveis por env) ---
-WORKSPACE = os.environ.get("AGENTE_WORKSPACE", os.path.join(BASE, "workspace"))
-DADOS = os.environ.get("AGENTE_DADOS", os.path.join(BASE, "dados"))
+# --- Dados persistentes fora do pacote (sobrevivem a reinstalações/upgrades) ---
+DIR_CONFIG = os.path.dirname(ARQ_MOTOR) or os.path.expanduser("~/.config/hrx")
+WORKSPACE = os.environ.get(
+    "AGENTE_WORKSPACE", os.path.join(DIR_CONFIG, "workspace"))
+DADOS = os.environ.get("AGENTE_DADOS", os.path.join(DIR_CONFIG, "dados"))
 
 # --- Git: opera no diretório de onde o hrx foi chamado (fora da sandbox) ---
 REPO = os.environ.get("AGENTE_REPO", os.getcwd())

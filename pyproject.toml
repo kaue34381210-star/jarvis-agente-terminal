@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=66"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hrx-code"
+dynamic = ["version"]
+description = "Agente de IA para desenvolvimento e automação no terminal"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+authors = [{name = "Kauê"}]
+dependencies = [
+  "rich>=13,<16",
+  "requests>=2.31,<3",
+  "openpyxl>=3.1,<4",
+  "reportlab>=4,<6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+
+[project.scripts]
+hrx = "agente:main"
+
+[project.urls]
+Homepage = "https://www.dwsolutions.company/hrx-code.html"
+Repository = "https://github.com/kaue34381210-star/hrx-code"
+
+[tool.setuptools]
+py-modules = [
+  "agente",
+  "aprovacao",
+  "caminhos",
+  "claude",
+  "comandos",
+  "config",
+  "ferramentas",
+  "gemini",
+  "local",
+  "openai_compat",
+  "permissao",
+  "versao",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "versao.__version__"}
