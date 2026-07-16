@@ -1,7 +1,7 @@
 from unittest.mock import Mock
 
-import config
-import local
+from hrx_code import config
+from hrx_code import local
 
 
 def test_chamada_local(monkeypatch):

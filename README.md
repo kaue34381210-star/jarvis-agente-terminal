@@ -148,11 +148,11 @@ Comandos úteis no chat: `/config`, `/perfil`, `/motor`, `/modo`, `/permissoes`,
 ## Desenvolvimento
 
 ```bash
-python -m pip install ".[dev]"
+python -m pip install -e ".[dev]"
 python -m pytest
 ```
 
-A suíte possui 56 testes e roda no GitHub Actions com Python 3.10, 3.11, 3.12
+A suíte possui 57 testes e roda no GitHub Actions com Python 3.10, 3.11, 3.12
 e 3.13. Para recriar a demonstração do README, instale o FFmpeg e execute:
 
 ```bash
@@ -162,17 +162,18 @@ e 3.13. Para recriar a demonstração do README, instale o FFmpeg e execute:
 ## Estrutura principal
 
 ```text
-agente.py          loop ReAct, interface e configuração interativa
-ferramentas.py     código, documentos, memória, web, shell e Git
-permissao.py       política da sessão e autorização de uso único
-aprovacao.py       classificação heurística de risco
-caminhos.py        resolução canônica e isolamento de diretórios
-gemini.py          cliente Gemini e rotação de chaves
-openai_compat.py   OpenAI, DeepSeek, Groq e Ollama
-claude.py          adaptador para Anthropic Messages
-local.py           endpoint local compatível com Chat Completions
-config.py          configuração persistente e variáveis de ambiente
-tests/             suíte automatizada
+src/hrx_code/
+├── agente.py          loop ReAct, interface e configuração interativa
+├── ferramentas.py     código, documentos, memória, web, shell e Git
+├── permissao.py       política da sessão e autorização de uso único
+├── aprovacao.py       classificação heurística de risco
+├── caminhos.py        resolução canônica e isolamento de diretórios
+├── gemini.py          cliente Gemini e rotação de chaves
+├── openai_compat.py   OpenAI, DeepSeek, Groq e Ollama
+├── claude.py          adaptador para Anthropic Messages
+├── local.py           endpoint local compatível com Chat Completions
+└── config.py          configuração persistente e variáveis de ambiente
+tests/                 suíte automatizada
 ```
 
 As decisões técnicas e mudanças relevantes estão em [`MEMORIA.md`](MEMORIA.md),

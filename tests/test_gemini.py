@@ -1,6 +1,6 @@
 from unittest.mock import Mock
 
-import gemini
+from hrx_code import gemini
 
 
 def test_pool_rotaciona_chaves_em_cooldown(monkeypatch):

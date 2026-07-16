@@ -1,9 +1,9 @@
 """Política de permissões da sessão do HRX Code."""
 import os
 
-import aprovacao
-import caminhos
-import config
+from . import aprovacao
+from . import caminhos
+from . import config
 
 COMANDO_DE_FERRAMENTA = {
     "rodar_comando": lambda a: str((a or {}).get("comando", "")).strip(),

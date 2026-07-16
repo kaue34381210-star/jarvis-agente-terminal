@@ -1,7 +1,7 @@
 """Adaptador HTTP para a API Messages da Anthropic."""
 import requests
 
-import config
+from . import config
 
 VERSAO_API = "2023-06-01"
 

@@ -11,15 +11,15 @@ from rich.panel import Panel
 from rich.rule import Rule
 from rich.text import Text
 
-import claude
-import comandos
-import config
-import ferramentas
-import local
-import openai_compat
-import permissao
-from gemini import PoolChaves, carregar_chaves, chamar
-from versao import __version__
+from . import claude
+from . import comandos
+from . import config
+from . import ferramentas
+from . import local
+from . import openai_compat
+from . import permissao
+from .gemini import PoolChaves, carregar_chaves, chamar
+from .versao import __version__
 
 console = Console()
 

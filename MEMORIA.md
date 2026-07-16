@@ -6,9 +6,11 @@ comportamento, os comandos ou a configuração mudarem.
 
 ## Mudanças recentes
 
-- Projeto empacotado via `pyproject.toml`, com dependências declaradas, versão
-  única em `versao.py` e comando oficial `hrx`; dados persistentes foram
-  movidos para `~/.config/hrx/` para sobreviver a upgrades do pacote.
+- Código-fonte organizado em `src/hrx_code`, com imports relativos, execução
+  por `python -m hrx_code` e comando oficial `hrx` definido no pacote.
+- Projeto empacotado via `pyproject.toml`, com dependências declaradas e versão
+  única em `src/hrx_code/versao.py`; dados persistentes ficam em
+  `~/.config/hrx/` para sobreviver a upgrades do pacote.
 - Caminhos agora são canonizados antes do uso: leituras bloqueiam escapes por
   `..` e links simbólicos, enquanto escritas fora do projeto são sempre risco
   vermelho e exigem confirmação explícita, inclusive no modo automático.
@@ -19,9 +21,8 @@ comportamento, os comandos ou a configuração mudarem.
   Marvel). Trocado tudo: marca, logo ASCII, backronym, config dir
   (`~/.config/hrx/`), prefixo de env vars (`HRX_`) e comandos (`hrx`,
   `hrx-qwen`).
-- Removidos os instaladores (`instalar.sh`, `desinstalar.sh`) e toda a pasta
-  `windows/`. Agora roda direto do repo: `python agente.py`. O comando `hrx` no
-  PC é um atalho para `.venv/bin/python agente.py`.
+- O `run.sh` executa o pacote com `.venv/bin/python -m hrx_code`; instalações
+  usam o ponto de entrada `hrx_code.agente:main`.
 - Licença definida como **proprietária de uso gratuito** (`LICENSE`): livre para
   usar e compartilhar cópias exatas, proibido modificar ou vender. Não é OSS.
 - Adicionado `/perfil` (nome, tom, idioma, projeto) persistido em

@@ -2,7 +2,7 @@
 import requests
 from urllib.parse import urlsplit, urlunsplit
 
-import config
+from . import config
 
 DICA_SERVIDOR = "./iniciar-qwen.sh"
 

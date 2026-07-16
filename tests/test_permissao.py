@@ -1,7 +1,7 @@
 import pytest
 
-import config
-import permissao
+from hrx_code import config
+from hrx_code import permissao
 
 
 @pytest.fixture

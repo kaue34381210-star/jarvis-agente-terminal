@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-import caminhos
+from hrx_code import caminhos
 
 
 def test_resolve_caminho_relativo_dentro_do_projeto(tmp_path):

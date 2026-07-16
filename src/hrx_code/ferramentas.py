@@ -6,9 +6,9 @@ import shlex
 import datetime
 import subprocess
 
-import caminhos
-import config
-import permissao
+from . import caminhos
+from . import config
+from . import permissao
 
 
 _IGNORAR = {".git", "node_modules", ".venv", "venv", "__pycache__",

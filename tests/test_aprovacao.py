@@ -1,6 +1,6 @@
 import pytest
 
-import aprovacao
+from hrx_code import aprovacao
 
 
 CASOS = [

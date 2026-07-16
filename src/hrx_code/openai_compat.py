@@ -1,7 +1,7 @@
 """Adaptador para provedores compatíveis com Chat Completions."""
 import requests
 
-import config
+from . import config
 
 
 def chamar(mensagens: list, base_url: str, modelo: str, api_key: str = None,

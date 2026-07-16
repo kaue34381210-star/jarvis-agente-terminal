@@ -5,7 +5,7 @@ import time
 
 import requests
 
-import config
+from . import config
 
 URL = "https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent"
 

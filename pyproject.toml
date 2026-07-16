@@ -21,27 +21,18 @@ dependencies = [
 dev = ["pytest>=8,<10"]
 
 [project.scripts]
-hrx = "agente:main"
+hrx = "hrx_code.agente:main"
 
 [project.urls]
 Homepage = "https://www.dwsolutions.company/hrx-code.html"
 Repository = "https://github.com/kaue34381210-star/hrx-code"
+Changelog = "https://github.com/kaue34381210-star/hrx-code/blob/main/CHANGELOG.md"
 
 [tool.setuptools]
-py-modules = [
-  "agente",
-  "aprovacao",
-  "caminhos",
-  "claude",
-  "comandos",
-  "config",
-  "ferramentas",
-  "gemini",
-  "local",
-  "openai_compat",
-  "permissao",
-  "versao",
-]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.setuptools.dynamic]
-version = {attr = "versao.__version__"}
+version = {attr = "hrx_code.versao.__version__"}

@@ -1,7 +1,8 @@
+import subprocess
 import sys
 
-import agente
-from versao import __version__
+from hrx_code import __version__
+from hrx_code import agente
 
 
 def _motor_nao_deve_iniciar():
@@ -26,3 +27,14 @@ def test_help_nao_inicia_motor(monkeypatch, capsys):
     saida = capsys.readouterr().out
     assert "hrx \"tarefa\"" in saida
     assert "hrx --version" in saida
+
+
+def test_execucao_com_python_m():
+    resultado = subprocess.run(
+        [sys.executable, "-m", "hrx_code", "--version"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert resultado.stdout.strip() == f"HRX CODE {__version__}"
