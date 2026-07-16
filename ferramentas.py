@@ -607,6 +607,167 @@ def buscar_docs(consulta: str) -> str:
     return "\n\n---\n\n".join(f"[{n}] (rel. {s})\n{b[:500]}" for s, n, b in achados[:4])
 
 
+# ---------------------------------------------------------------------------
+# Fetch de URL — trazer conteúdo da web como texto legível ao agente.
+# Bloqueia SSRF pra IP interno (loopback/privado/link-local/reservado) e
+# valida cada hop de redirect. Sem novas deps: usa stdlib pro parse de HTML.
+# ---------------------------------------------------------------------------
+_WEB_TAGS_IGNORAR = {"script", "style", "noscript", "svg", "iframe",
+                     "nav", "header", "footer", "aside", "form", "template"}
+_WEB_TAGS_BLOCO = {"p", "div", "section", "article", "li", "tr",
+                   "table", "ul", "ol", "blockquote", "br", "hr"}
+_WEB_TAGS_H = {"h1": "# ", "h2": "## ", "h3": "### ",
+               "h4": "#### ", "h5": "##### ", "h6": "###### "}
+
+
+def _html_para_texto(html: str) -> str:
+    """HTML → texto ~markdown. Simples e sem deps, bom o bastante pra LLM ler."""
+    import re as _re
+    from html.parser import HTMLParser
+
+    partes = []
+    ignorar = [0]
+    href = [None]
+
+    class _P(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            if tag in _WEB_TAGS_IGNORAR:
+                ignorar[0] += 1
+                return
+            if ignorar[0]:
+                return
+            if tag in _WEB_TAGS_H:
+                partes.append("\n\n" + _WEB_TAGS_H[tag])
+            elif tag == "pre":
+                partes.append("\n\n```\n")
+            elif tag == "code":
+                partes.append("`")
+            elif tag == "a":
+                href[0] = dict(attrs).get("href", "")
+            elif tag in _WEB_TAGS_BLOCO:
+                partes.append("\n")
+
+        def handle_endtag(self, tag):
+            if tag in _WEB_TAGS_IGNORAR:
+                ignorar[0] = max(0, ignorar[0] - 1)
+                return
+            if ignorar[0]:
+                return
+            if tag in _WEB_TAGS_H or tag in _WEB_TAGS_BLOCO:
+                partes.append("\n")
+            elif tag == "pre":
+                partes.append("\n```\n")
+            elif tag == "code":
+                partes.append("`")
+            elif tag == "a" and href[0]:
+                partes.append(f" [{href[0]}]")
+                href[0] = None
+
+        def handle_data(self, data):
+            if not ignorar[0]:
+                partes.append(data)
+
+    try:
+        _P().feed(html)
+    except Exception:  # noqa: BLE001 — HTMLParser é tolerante, mas garante fallback
+        return _re.sub(r"<[^>]+>", " ", html)
+    texto = "".join(partes)
+    texto = _re.sub(r"[ \t]+", " ", texto)
+    texto = _re.sub(r"\n{3,}", "\n\n", texto)
+    return texto.strip()
+
+
+def _validar_url_publica(url: str) -> str:
+    """Valida esquema e bloqueia IP interno (SSRF). Retorna a URL normalizada."""
+    import ipaddress
+    import socket
+    from urllib.parse import urlparse
+
+    p = urlparse(url)
+    if p.scheme not in ("http", "https"):
+        raise ValueError(f"esquema não permitido: {p.scheme or '(vazio)'}")
+    host = p.hostname
+    if not host:
+        raise ValueError("URL sem host")
+    try:
+        endereco = socket.gethostbyname(host)
+    except socket.gaierror:
+        raise ValueError(f"host não resolve: {host}")
+    ip = ipaddress.ip_address(endereco)
+    if (ip.is_private or ip.is_loopback or ip.is_link_local
+            or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+        raise ValueError(f"IP interno bloqueado: {endereco} ({host})")
+    return url
+
+
+def buscar_web(url: str, max_chars: int = 8000) -> str:
+    """Baixa uma URL pública e devolve o texto principal em ~markdown.
+    Uso: consultar docs, ler stack traces, ver issues/CVE, blogs técnicos.
+    Bloqueia URLs internas (SSRF), esquemas não-http e conteúdo > 2 MB."""
+    import requests
+    from urllib.parse import urljoin
+
+    if not url or not str(url).strip():
+        return "ERRO: URL vazia"
+    try:
+        _validar_url_publica(url)
+    except ValueError as e:
+        return f"ERRO: {e}"
+
+    headers = {"User-Agent": "hrx-code/1.0 (+https://www.dwsolutions.company)"}
+    atual = url
+    for _ in range(6):  # até 5 redirects + a request final
+        try:
+            r = requests.get(atual, headers=headers, timeout=15,
+                             allow_redirects=False, stream=True)
+        except requests.RequestException as e:
+            return f"ERRO ao baixar {atual}: {e}"
+        if r.is_redirect or r.status_code in (301, 302, 303, 307, 308):
+            destino = r.headers.get("Location", "")
+            r.close()
+            if not destino:
+                return f"ERRO: redirect sem Location em {atual}"
+            atual = urljoin(atual, destino)
+            try:
+                _validar_url_publica(atual)
+            except ValueError as e:
+                return f"ERRO ao seguir redirect: {e}"
+            continue
+        break
+    else:
+        return "ERRO: muitos redirects (>5)"
+
+    if not r.ok:
+        r.close()
+        return f"ERRO HTTP {r.status_code} em {atual}"
+
+    limite_bytes = 2_000_000
+    corpo = bytearray()
+    for chunk in r.iter_content(65536):
+        corpo += chunk
+        if len(corpo) >= limite_bytes:
+            corpo = corpo[:limite_bytes]
+            break
+    ctype = (r.headers.get("Content-Type") or "").lower()
+    encoding = r.encoding or "utf-8"
+    r.close()
+
+    try:
+        texto = bytes(corpo).decode(encoding, errors="replace")
+    except LookupError:
+        texto = bytes(corpo).decode("utf-8", errors="replace")
+
+    inicio = texto.lstrip()[:15].lower()
+    parece_html = ("html" in ctype or inicio.startswith("<!doctype")
+                   or inicio.startswith("<html"))
+    if parece_html:
+        texto = _html_para_texto(texto)
+
+    if len(texto) > max_chars:
+        texto = texto[:max_chars] + f"\n\n...[truncado — ~{len(corpo)} bytes baixados]"
+    return f"# {atual}\n\n{texto}"
+
+
 REGISTRO = {
     "ler_arquivo": ler_arquivo,
     "escrever_arquivo": escrever_arquivo,
@@ -618,6 +779,7 @@ REGISTRO = {
     "rodar_comando": rodar_comando,
     "git": git,
     "consultar_cve": consultar_cve,
+    "buscar_web": buscar_web,
     "memoria_salvar": memoria_salvar,
     "memoria_listar": memoria_listar,
     "memoria_esquecer": memoria_esquecer,

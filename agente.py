@@ -40,6 +40,7 @@ Outras ferramentas:
 - rodar_comando(comando)        executa comando no shell (roda no diretório do projeto)
 - git(args)                     versiona: git("status"), git("diff"), git("commit -m 'msg'")
 - consultar_cve(consulta)       consulta CVEs no NVD por ID (CVE-2021-44228) ou palavra-chave
+- buscar_web(url, max_chars)    baixa uma URL pública e devolve o texto em ~markdown (docs, issues, blogs, stack traces)
 - memoria_salvar(texto, tipo) / memoria_listar() / memoria_esquecer(alvo)  memória entre sessões
 - buscar_docs(consulta)         busca nos documentos do usuário (base de conhecimento, não é o código)
 
