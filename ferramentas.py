@@ -678,7 +678,15 @@ def _html_para_texto(html: str) -> str:
 
 
 def _validar_url_publica(url: str) -> str:
-    """Valida esquema e bloqueia IP interno (SSRF). Retorna a URL normalizada."""
+    """Valida esquema e bloqueia IP interno (SSRF). Retorna a URL normalizada.
+    Resolve TODOS os endereços (v4 e v6) via getaddrinfo e reprova se qualquer
+    um for privado/loopback/link-local/reservado/multicast/mapeado. Também
+    normaliza IPv4-mapped IPv6 (::ffff:x.x.x.x) antes da checagem.
+    Resíduo aceito: DNS rebinding TOCTOU — o `requests.get` resolve de novo
+    e o servidor pode responder outro IP entre a validação e o connect. Mitigar
+    de verdade exigiria pin de IP + Host header via HTTPAdapter customizado;
+    fora do escopo desta versão. O agente é single-user; o risco requer
+    injeção de prompt E domínio controlado pelo atacante."""
     import ipaddress
     import socket
     from urllib.parse import urlparse
@@ -690,13 +698,20 @@ def _validar_url_publica(url: str) -> str:
     if not host:
         raise ValueError("URL sem host")
     try:
-        endereco = socket.gethostbyname(host)
+        infos = socket.getaddrinfo(host, None)
     except socket.gaierror:
         raise ValueError(f"host não resolve: {host}")
-    ip = ipaddress.ip_address(endereco)
-    if (ip.is_private or ip.is_loopback or ip.is_link_local
-            or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
-        raise ValueError(f"IP interno bloqueado: {endereco} ({host})")
+    if not infos:
+        raise ValueError(f"host sem endereços: {host}")
+    for info in infos:
+        endereco = info[4][0]
+        ip = ipaddress.ip_address(endereco)
+        # IPv4-mapped IPv6 (::ffff:a.b.c.d) → normaliza p/ IPv4 antes de checar
+        if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+            ip = ip.ipv4_mapped
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+            raise ValueError(f"IP interno bloqueado: {endereco} ({host})")
     return url
 
 
