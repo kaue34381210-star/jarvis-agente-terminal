@@ -152,8 +152,9 @@ python -m pip install -e ".[dev]"
 python -m pytest
 ```
 
-A suíte possui 57 testes e roda no GitHub Actions com Python 3.10, 3.11, 3.12
-e 3.13. Para recriar a demonstração do README, instale o FFmpeg e execute:
+A suíte possui 77 testes, cobre atualmente 42% do pacote e roda no GitHub
+Actions com Python 3.10, 3.11, 3.12 e 3.13. O CI exige no mínimo 40% de
+cobertura. Para recriar a demonstração do README, instale o FFmpeg e execute:
 
 ```bash
 ./docs/render-demo.sh

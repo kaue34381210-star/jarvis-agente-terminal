@@ -9,6 +9,9 @@ Todas as mudanças relevantes do HRX Code serão registradas neste arquivo.
 - Código-fonte migrado para o pacote `src/hrx_code` com imports relativos.
 - CLI também pode ser iniciada com `python -m hrx_code`.
 - Testes atualizados para validar a API do pacote e o novo ponto de entrada.
+- Suíte ampliada para 77 testes, cobrindo comandos customizados, memória,
+  ferramentas de arquivo e adaptadores OpenAI/Claude.
+- Cobertura medida com `pytest-cov` e protegida por um piso de 40% no CI.
 
 ## [0.1.0] - 2026-07-16
 

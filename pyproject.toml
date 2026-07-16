@@ -18,7 +18,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8,<10"]
+dev = [
+  "pytest>=8,<10",
+  "pytest-cov>=5,<8",
+]
 
 [project.scripts]
 hrx = "hrx_code.agente:main"

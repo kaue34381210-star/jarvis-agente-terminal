@@ -11,6 +11,9 @@ build_out/
 build/
 dist/
 *.egg-info/
+.coverage
+coverage.xml
+htmlcov/
 
 # === Saídas do agente ===
 workspace/*

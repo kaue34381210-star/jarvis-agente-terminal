@@ -24,6 +24,6 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements-dev.txt
       - name: Run tests
-        run: python -m pytest
+        run: python -m pytest --cov=hrx_code --cov-report=term-missing --cov-fail-under=40
       - name: Test installed command
         run: hrx --version
