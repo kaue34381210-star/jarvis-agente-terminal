@@ -353,14 +353,16 @@ def _configurar_motor() -> None:
     opcoes = {
         "1": ("gemini", "Gemini"), "2": ("openai", "ChatGPT / OpenAI"),
         "3": ("deepseek", "DeepSeek"), "4": ("claude", "Claude"),
-        "5": ("ollama", "Ollama local"), "6": ("local", "Llamafile / Qwen local"),
+        "5": ("groq", "Groq (Llama 3.3 70B — free tier grande)"),
+        "6": ("ollama", "Ollama local"), "7": ("local", "Llamafile / Qwen local"),
     }
     console.print(Panel(
         "[cyan]1[/cyan] Gemini\n[cyan]2[/cyan] ChatGPT / OpenAI\n"
         "[cyan]3[/cyan] DeepSeek\n[cyan]4[/cyan] Claude\n"
-        "[cyan]5[/cyan] Ollama local\n[cyan]6[/cyan] Llamafile / Qwen local",
+        "[cyan]5[/cyan] Groq (Llama 3.3 70B — free tier grande)\n"
+        "[cyan]6[/cyan] Ollama local\n[cyan]7[/cyan] Llamafile / Qwen local",
         title="⚙ configurar motor", border_style="cyan", padding=(0, 2)))
-    escolha = _perguntar("  escolha [1-6] (Enter cancela) › ")
+    escolha = _perguntar("  escolha [1-7] (Enter cancela) › ")
     if escolha not in opcoes:
         console.print("  [dim]configuração cancelada.[/dim]")
         return
@@ -390,11 +392,16 @@ def _configurar_motor() -> None:
         atual = config.provedor(motor)
         dados["ollama_url"] = atual.get("url", "http://127.0.0.1:11434/v1/chat/completions")
         dados["ollama_modelo"] = atual.get("modelo", "llama3.1")
+    elif motor == "groq":
+        atual = config.provedor(motor)
+        dados["groq_url"] = atual.get("url", "https://api.groq.com/openai/v1/chat/completions")
+        dados["groq_modelo"] = atual.get("modelo", "llama-3.3-70b-versatile")
     campos = {
         "openai": ("openai", "https://api.openai.com/v1/chat/completions", "gpt-4o-mini"),
         "deepseek": ("deepseek", "https://api.deepseek.com/v1/chat/completions", "deepseek-chat"),
         "claude": ("claude", "https://api.anthropic.com/v1/messages", "claude-opus-4-8"),
         "ollama": ("ollama", "http://127.0.0.1:11434/v1/chat/completions", "llama3.1"),
+        "groq": ("groq", "https://api.groq.com/openai/v1/chat/completions", "llama-3.3-70b-versatile"),
     }
     if motor == "gemini":
         chave = _ler_segredo("  chave Gemini (Enter mantém as chaves atuais) › ")
@@ -683,8 +690,8 @@ def _preparar_motor():
                 title="[yellow]motor local fora do ar", border_style="yellow"))
         return (lambda msgs: local.chamar(msgs)[0]), None, rotulo
 
-    # Motores por API (protocolo OpenAI: openai/deepseek/ollama; Anthropic: claude)
-    if config.MOTOR in ("openai", "deepseek", "ollama", "claude"):
+    # Motores por API (protocolo OpenAI: openai/deepseek/ollama/groq; Anthropic: claude)
+    if config.MOTOR in ("openai", "deepseek", "ollama", "groq", "claude"):
         p = config.provedor(config.MOTOR)
         if p["exige_chave"] and not p["chave"]:
             _erro_sem_chave(p["rotulo"])

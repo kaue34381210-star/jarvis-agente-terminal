@@ -102,7 +102,7 @@ TOM = str(_pref("AGENTE_TOM", "tom", "direto")).strip().lower()
 IDIOMA = str(_pref("AGENTE_IDIOMA", "idioma", "pt-BR")).strip()
 PROJETO = str(_pref("AGENTE_PROJETO", "projeto", "")).strip()
 
-# --- Seleção de motor: gemini · local · openai · deepseek · ollama · claude ---
+# --- Seleção de motor: gemini · local · openai · deepseek · ollama · groq · claude ---
 # Padrão do HRX CODE: motor local, sem chave e sem depender de internet.
 MOTOR = str(_cfg("HRX_MOTOR", "motor", "local")).strip().lower()
 
@@ -127,6 +127,12 @@ DEEPSEEK_API_KEY = _cfg("DEEPSEEK_API_KEY", "deepseek_key", "")
 OLLAMA_URL = _cfg("OLLAMA_URL", "ollama_url", "http://127.0.0.1:11434/v1/chat/completions")
 OLLAMA_MODELO = _cfg("OLLAMA_MODELO", "ollama_modelo", "llama3.1")
 
+# Groq: mesmo protocolo OpenAI, endpoint /openai/v1/chat/completions.
+# Free tier grande e rápido (Llama 3.3 70B versatile), útil como plano B do Gemini.
+GROQ_URL = _cfg("GROQ_URL", "groq_url", "https://api.groq.com/openai/v1/chat/completions")
+GROQ_MODELO = _cfg("GROQ_MODELO", "groq_modelo", "llama-3.3-70b-versatile")
+GROQ_API_KEY = _cfg("GROQ_API_KEY", "groq_key", "")
+
 # Protocolo Anthropic (/v1/messages): Claude.
 CLAUDE_URL = _cfg("CLAUDE_URL", "claude_url", "https://api.anthropic.com/v1/messages")
 CLAUDE_MODELO = _cfg("CLAUDE_MODELO", "claude_modelo", "claude-opus-4-8")
@@ -145,13 +151,15 @@ def provedor(nome: str) -> dict:
                      "chave": DEEPSEEK_API_KEY, "exige_chave": True, "rotulo": "DeepSeek"},
         "ollama":   {"protocolo": "openai", "url": OLLAMA_URL, "modelo": OLLAMA_MODELO,
                      "chave": "", "exige_chave": False, "rotulo": "Ollama"},
+        "groq":     {"protocolo": "openai", "url": GROQ_URL, "modelo": GROQ_MODELO,
+                     "chave": GROQ_API_KEY, "exige_chave": True, "rotulo": "Groq"},
         "claude":   {"protocolo": "anthropic", "url": CLAUDE_URL, "modelo": CLAUDE_MODELO,
                      "chave": ANTHROPIC_API_KEY, "exige_chave": True, "rotulo": "Claude"},
     }
     return tabela.get(nome, {})
 
 
-MOTORES = ("gemini", "local", "openai", "deepseek", "ollama", "claude")
+MOTORES = ("gemini", "local", "openai", "deepseek", "ollama", "groq", "claude")
 
 
 def _arq_chaves() -> str:
