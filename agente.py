@@ -12,6 +12,7 @@ from rich.rule import Rule
 from rich.text import Text
 
 import claude
+import comandos
 import config
 import ferramentas
 import local
@@ -519,6 +520,7 @@ def _comando_especial(motor_chamar, pool, pol: permissao.Politica, historico: li
             "[cyan]/memoria resumir[/cyan] atualiza o resumo da memória\n"
             "[cyan]/memoria limpar[/cyan] limpa memória e resumo\n"
             "[cyan]/novo[/cyan]        começa uma conversa nova (esquece o contexto)\n"
+            "[cyan]/comandos[/cyan]    lista seus comandos customizados (~/.config/hrx/comandos)\n"
             "[cyan]/limpar[/cyan]      limpa a tela\n"
             "[cyan]/sair[/cyan]        encerra\n\n"
             "[dim]Motor local: use [/dim][cyan]./iniciar-qwen.sh[/cyan][dim] e, se preciso, [/dim]"
@@ -655,6 +657,31 @@ def _comando_especial(motor_chamar, pool, pol: permissao.Politica, historico: li
     if cmd == "/limpar":
         console.clear()
         return True
+    if partes and partes[0] == "/comandos":
+        if len(partes) > 1 and partes[1] in ("recarregar", "reload", "atualizar"):
+            comandos.recarregar()
+            console.print(f"  [green]✓[/green] comandos recarregados de "
+                          f"[dim]{comandos.dir_comandos()}[/dim]")
+            return True
+        mapa = comandos.carregar()
+        if not mapa:
+            console.print(Panel(
+                f"Nenhum comando customizado.\n\n"
+                f"Crie arquivos [cyan].md[/cyan] em "
+                f"[dim]{comandos.dir_comandos()}[/dim] — o nome do arquivo vira "
+                f"o comando. Ex.: [cyan]revisar.md[/cyan] → [cyan]/revisar[/cyan].",
+                title="comandos customizados", border_style="grey37",
+                padding=(0, 2)))
+            return True
+        linhas = []
+        for nome, dados in sorted(mapa.items()):
+            desc = dados.get("descricao") or "[dim](sem descrição)[/dim]"
+            linhas.append(f"[cyan]{nome}[/cyan]  {desc}")
+        console.print(Panel(
+            "\n".join(linhas) + f"\n\n[dim]pasta: {comandos.dir_comandos()}[/dim]\n"
+            "[dim]atualize com [/dim][cyan]/comandos recarregar[/cyan]",
+            title="comandos customizados", border_style="grey37", padding=(0, 2)))
+        return True
     return False
 
 
@@ -731,6 +758,9 @@ def main() -> None:
 
     arg = " ".join(sys.argv[1:]).strip()
     if arg:  # modo one-shot
+        expandido = comandos.expandir(arg)
+        if expandido is not None:
+            arg = expandido
         try:
             resposta = rodar(motor_chamar, pol, historico, arg)
         except Exception as e:  # noqa: BLE001
@@ -752,6 +782,13 @@ def main() -> None:
         try:
             if _comando_especial(motor_chamar, pool, pol, historico, entrada):
                 continue
+            # Se for um comando customizado (ex.: /revisar), expande o prompt
+            # e segue o fluxo normal do agente com o texto expandido.
+            expandido = comandos.expandir(entrada)
+            if expandido is not None:
+                console.print(f"  [grey50]▸ expandindo[/grey50] [cyan]"
+                              f"{entrada.split()[0]}[/cyan]")
+                entrada = expandido
             resposta = rodar(motor_chamar, pol, historico, entrada)
             console.print()
             console.print(Panel(Markdown(resposta),
