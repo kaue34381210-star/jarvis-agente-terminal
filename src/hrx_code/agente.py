@@ -676,7 +676,7 @@ def _comando_especial(motor_chamar, pool, pol: permissao.Politica, historico: li
             f"sempre permitir: [green]{sempre}[/green]",
             title="🔐 permissões", border_style="grey37", padding=(0, 2)))
         return True
-    if cmd in ("/memoria", "/memorias"):
+    if partes and partes[0] in ("/memoria", "/memorias"):
         if partes and len(partes) > 1 and partes[1] == "modo":
             if len(partes) == 2:
                 atual = getattr(config, "MEMORIA_PROMPT", "compacta")

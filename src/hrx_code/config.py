@@ -171,7 +171,9 @@ REPO = os.environ.get("AGENTE_REPO", os.getcwd())
 
 MEMORIA = os.path.join(DADOS, "memoria.json")
 
-MEMORIA_PROMPT = os.environ.get("HRX_MEMORIA_PROMPT", "compacta").strip().lower()
+MEMORIA_PROMPT = str(_cfg(
+    "HRX_MEMORIA_PROMPT", "memoria_prompt", "compacta"
+)).strip().lower()
 MEMORIA_PROMPT_MAX_ITENS = int(os.environ.get("HRX_MEMORIA_PROMPT_MAX_ITENS", "8"))
 MEMORIA_PROMPT_MAX_CHARS = int(os.environ.get("HRX_MEMORIA_PROMPT_MAX_CHARS", "900"))
 MEMORIA_PROMPT_RESUMO_A_PARTIR = int(os.environ.get("HRX_MEMORIA_PROMPT_RESUMO_A_PARTIR", "20"))
