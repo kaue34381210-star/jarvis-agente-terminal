@@ -10,6 +10,7 @@ from pathlib import PurePosixPath
 from pathspec import GitIgnoreSpec
 
 from . import config
+from . import undo
 
 
 # Diretórios caros ou internos nunca são percorridos, mesmo quando o usuário
@@ -82,6 +83,8 @@ def _relativo_posix(caminho: str) -> str:
 def deve_ignorar(caminho: str, diretorio: bool = False,
                  respeitar_gitignore: bool = True) -> bool:
     """Diz se um caminho deve ser omitido das ferramentas de navegação."""
+    if undo.caminho_protegido(caminho):
+        return True
     relativo = _relativo_posix(caminho)
     partes = PurePosixPath(relativo).parts
     partes_internas = partes if diretorio else partes[:-1]

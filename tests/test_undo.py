@@ -118,7 +118,22 @@ def test_caminho_opcional_seleciona_a_operacao_mais_recente_daquele_arquivo(
     assert (repo / "b.txt").exists()
 
 
-@pytest.mark.parametrize("mudanca", ["alterar", "remover"])
+def test_undos_consecutivos_do_mesmo_arquivo_preservam_a_cadeia(ambiente):
+    repo, _ = ambiente
+    arquivo = repo / "alvo.txt"
+    arquivo.write_text("zero", encoding="utf-8")
+    politica = permissao.Politica()
+    permissao.usar(politica)
+    _escrever(politica, "alvo.txt", "um")
+    _escrever(politica, "alvo.txt", "dois")
+
+    assert "restaurado" in _desfazer(politica)
+    assert arquivo.read_text(encoding="utf-8") == "um"
+    assert "restaurado" in _desfazer(politica)
+    assert arquivo.read_text(encoding="utf-8") == "zero"
+
+
+@pytest.mark.parametrize("mudanca", ["alterar", "remover", "chmod", "reescrever"])
 def test_conflito_externo_nao_consumido(ambiente, mudanca):
     repo, dados = ambiente
     arquivo = repo / "alvo.txt"
@@ -128,8 +143,14 @@ def test_conflito_externo_nao_consumido(ambiente, mudanca):
     _escrever(politica, "alvo.txt", "depois")
     if mudanca == "alterar":
         arquivo.write_text("externo", encoding="utf-8")
-    else:
+    elif mudanca == "remover":
         arquivo.unlink()
+    elif mudanca == "chmod":
+        arquivo.chmod(0o600)
+    else:
+        substituto = repo / "substituto.txt"
+        substituto.write_text("depois", encoding="utf-8")
+        os.replace(substituto, arquivo)
 
     resultado = _desfazer(politica)
 
@@ -154,6 +175,80 @@ def test_falha_de_escrita_reverte_e_nao_publica_transacao(ambiente, monkeypatch)
 
     assert arquivo.read_bytes() == b"original"
     assert undo.listar_undo() == "(nenhuma operação disponível para desfazer)"
+
+
+def test_historico_corrompido_recusa_mutacao_sem_apagar_estado(
+        ambiente, monkeypatch):
+    repo, dados = ambiente
+    arquivo = repo / "alvo.txt"
+    arquivo.write_text("original", encoding="utf-8")
+    pasta_undo = dados / "undo"
+    pasta_undo.mkdir(parents=True)
+    log = pasta_undo / "operacoes.json"
+    log.write_text("{json quebrado", encoding="utf-8")
+    politica = permissao.Politica()
+    permissao.usar(politica)
+    _autorizar(politica, "escrever_arquivo", "alvo.txt")
+
+    with pytest.raises(undo.UndoError, match="corrompido"):
+        ferramentas.escrever_arquivo("alvo.txt", "alterado")
+
+    assert arquivo.read_text(encoding="utf-8") == "original"
+    assert log.read_text(encoding="utf-8") == "{json quebrado"
+    assert list(pasta_undo.glob("*.bin")) == []
+
+
+def test_falha_de_rollback_preserva_snapshot_e_reporta_estado(
+        ambiente, monkeypatch):
+    repo, dados = ambiente
+    arquivo = repo / "alvo.txt"
+    arquivo.write_text("original", encoding="utf-8")
+    politica = permissao.Politica()
+    permissao.usar(politica)
+    _autorizar(politica, "escrever_arquivo", "alvo.txt")
+    monkeypatch.setattr(
+        undo, "confirmar_transacao", Mock(side_effect=OSError("log indisponível"))
+    )
+    replace_original = os.replace
+
+    def falhar_rollback(origem, destino):
+        if os.path.basename(origem).startswith(".hrx-rollback-"):
+            raise OSError("destino bloqueado")
+        return replace_original(origem, destino)
+
+    monkeypatch.setattr(undo.os, "replace", falhar_rollback)
+
+    with pytest.raises(undo.UndoError, match="snapshot não foi consumido"):
+        ferramentas.escrever_arquivo("alvo.txt", "alterado")
+
+    assert arquivo.read_text(encoding="utf-8") == "alterado"
+    pendentes = list((dados / "undo").glob(".pendente-*"))
+    assert len(pendentes) == 1
+    assert pendentes[0].read_text(encoding="utf-8") == "original"
+
+
+def test_falha_ao_registrar_undo_reverte_a_propria_restauracao(
+        ambiente, monkeypatch):
+    repo, dados = ambiente
+    arquivo = repo / "alvo.txt"
+    arquivo.write_text("antes", encoding="utf-8")
+    politica = permissao.Politica()
+    permissao.usar(politica)
+    _escrever(politica, "alvo.txt", "depois")
+    gravar_registros = undo._gravar_registros
+    monkeypatch.setattr(
+        undo, "_gravar_registros", Mock(side_effect=OSError("log indisponível"))
+    )
+
+    resultado = _desfazer(politica)
+
+    assert "permaneceu no estado anterior ao undo" in resultado
+    assert arquivo.read_text(encoding="utf-8") == "depois"
+    assert _registros(dados)[0]["desfeito"] is False
+
+    monkeypatch.setattr(undo, "_gravar_registros", gravar_registros)
+    assert "restaurado" in _desfazer(politica)
+    assert arquivo.read_text(encoding="utf-8") == "antes"
 
 
 def test_arquivo_maior_que_orcamento_recusa_mutacao(ambiente, monkeypatch):
@@ -252,3 +347,54 @@ def test_buscar_docs_nunca_indexa_backups_de_undo(ambiente):
 
     assert "agulhapublica" in ferramentas.buscar_docs("agulhapublica")
     assert "Nada encontrado" in ferramentas.buscar_docs("agulhasecreta")
+
+
+def test_ferramentas_de_leitura_nao_expoem_undo_dentro_do_projeto(
+        ambiente, monkeypatch):
+    repo, _ = ambiente
+    dados = repo / ".hrx-dados"
+    monkeypatch.setattr(config, "DADOS", str(dados))
+    arquivo = repo / "alvo.txt"
+    arquivo.write_text("agulhasecreta", encoding="utf-8")
+    politica = permissao.Politica()
+    permissao.usar(politica)
+    _escrever(politica, "alvo.txt", "público")
+    registro = _registros(dados)[0]
+    snapshot = dados / "undo" / registro["snapshot"]
+    relativo = snapshot.relative_to(repo).as_posix()
+
+    busca = ferramentas.buscar_codigo(
+        "agulhasecreta", respeitar_gitignore=False
+    )
+    listagem = ferramentas.listar_diretorio(
+        ".", recursivo=True, respeitar_gitignore=False
+    )
+    leitura = ferramentas.ler_arquivo(relativo)
+
+    assert "Nada encontrado" in busca
+    assert "undo" not in listagem
+    assert "não podem ser lidos" in leitura
+
+
+def test_ferramentas_de_escrita_nao_alteram_armazenamento_de_undo(
+        ambiente, monkeypatch):
+    repo, _ = ambiente
+    dados = repo / ".hrx-dados"
+    monkeypatch.setattr(config, "DADOS", str(dados))
+    arquivo = repo / "alvo.txt"
+    arquivo.write_text("segredo", encoding="utf-8")
+    politica = permissao.Politica()
+    permissao.usar(politica)
+    _escrever(politica, "alvo.txt", "público")
+    registro = _registros(dados)[0]
+    snapshot = dados / "undo" / registro["snapshot"]
+    original = snapshot.read_bytes()
+    relativo = snapshot.relative_to(repo).as_posix()
+    _autorizar(politica, "escrever_arquivo", relativo)
+
+    resultado = ferramentas.executar(
+        "escrever_arquivo", {"caminho": relativo, "conteudo": "vazou"}
+    )
+
+    assert "não podem ser alterados" in resultado
+    assert snapshot.read_bytes() == original

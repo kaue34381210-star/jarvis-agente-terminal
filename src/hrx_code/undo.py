@@ -52,13 +52,30 @@ def _hash_arquivo(caminho: str) -> str:
     return digest.hexdigest()
 
 
+def _estado_arquivo(caminho: str) -> dict:
+    estado = os.stat(caminho)
+    return {
+        "modo_depois": stat.S_IMODE(estado.st_mode),
+        "mtime_ns_depois": estado.st_mtime_ns,
+        "dispositivo_depois": estado.st_dev,
+        "inode_depois": estado.st_ino,
+    }
+
+
 def _ler_registros() -> list[dict]:
     try:
         with open(_log(), "r", encoding="utf-8") as arquivo:
             dados = json.load(arquivo)
-        return dados if isinstance(dados, list) else []
-    except (OSError, ValueError):
+    except FileNotFoundError:
         return []
+    except OSError as erro:
+        raise UndoError(f"não foi possível ler o histórico de undo: {erro}") from erro
+    except (TypeError, ValueError) as erro:
+        raise UndoError("histórico de undo está corrompido") from erro
+    if not isinstance(dados, list) or any(
+            not isinstance(registro, dict) for registro in dados):
+        raise UndoError("histórico de undo está corrompido")
+    return dados
 
 
 def _gravar_registros(registros: list[dict]) -> None:
@@ -169,6 +186,7 @@ def confirmar_transacao(transacao: dict) -> dict:
     if not os.path.isfile(alvo):
         raise UndoError("a escrita não produziu um arquivo regular")
     transacao["hash_depois"] = _hash_arquivo(alvo)
+    transacao.update(_estado_arquivo(alvo))
 
     pendente = transacao.pop("snapshot_pendente", None)
     if pendente:
@@ -216,6 +234,7 @@ def _restaurar_snapshot(transacao: dict) -> None:
 
 def abortar_transacao(transacao: dict, restaurar: bool = False) -> None:
     """Descarta o estado pendente; opcionalmente reverte uma escrita falha."""
+    erro_restauracao = None
     if restaurar:
         try:
             caminho = transacao["caminho"]
@@ -229,15 +248,28 @@ def abortar_transacao(transacao: dict, restaurar: bool = False) -> None:
                 if snapshot and os.path.isfile(snapshot):
                     pasta = os.path.dirname(caminho)
                     fd, temporario = tempfile.mkstemp(prefix=".hrx-rollback-", dir=pasta)
-                    with os.fdopen(fd, "wb") as destino, open(snapshot, "rb") as origem:
-                        for bloco in iter(lambda: origem.read(1024 * 1024), b""):
-                            destino.write(bloco)
-                    modo = transacao.get("modo")
-                    if modo is not None:
-                        os.chmod(temporario, int(modo))
-                    os.replace(temporario, caminho)
-        except OSError:
-            pass
+                    try:
+                        with os.fdopen(fd, "wb") as destino, open(snapshot, "rb") as origem:
+                            for bloco in iter(lambda: origem.read(1024 * 1024), b""):
+                                destino.write(bloco)
+                            destino.flush()
+                            os.fsync(destino.fileno())
+                        modo = transacao.get("modo")
+                        if modo is not None:
+                            os.chmod(temporario, int(modo))
+                        os.replace(temporario, caminho)
+                    finally:
+                        if os.path.exists(temporario):
+                            os.unlink(temporario)
+        except OSError as erro:
+            erro_restauracao = erro
+    if erro_restauracao is not None:
+        preservado = (transacao.get("snapshot_pendente")
+                      or transacao.get("snapshot") or "indisponível")
+        raise UndoError(
+            "rollback da mutação falhou; o estado atual foi mantido e o "
+            f"snapshot não foi consumido ({preservado}): {erro_restauracao}"
+        ) from erro_restauracao
     pendente = transacao.get("snapshot_pendente")
     if pendente and os.path.exists(pendente):
         try:
@@ -254,7 +286,11 @@ def listar_undo(limite: int = 10) -> str:
         limite = max(1, int(limite))
     except (TypeError, ValueError):
         return "ERRO: limite deve ser um inteiro positivo"
-    ativos = [r for r in _ler_registros() if not r.get("desfeito")]
+    try:
+        registros = _ler_registros()
+    except UndoError as erro:
+        return f"ERRO: {erro}"
+    ativos = [r for r in registros if not r.get("desfeito")]
     if not ativos:
         return "(nenhuma operação disponível para desfazer)"
     linhas = []
@@ -275,7 +311,10 @@ def desfazer_ultima(caminho: str = None) -> str:
         return "ERRO: undo não passou pela aprovação de risco (trinco de segurança)."
 
     alvo = caminhos.resolver(config.REPO, caminho) if caminho else None
-    registros = _ler_registros()
+    try:
+        registros = _ler_registros()
+    except UndoError as erro:
+        return f"ERRO: {erro}"
     candidatos = [
         (indice, registro)
         for indice, registro in enumerate(registros)
@@ -298,18 +337,84 @@ def desfazer_ultima(caminho: str = None) -> str:
             "ERRO: conflito de undo; o arquivo foi alterado depois da operação. "
             "Nada foi alterado e a operação continua disponível."
         )
+    estado_atual = _estado_arquivo(atual)
+    campos_estado = (
+        "modo_depois",
+        "mtime_ns_depois",
+        "dispositivo_depois",
+        "inode_depois",
+    )
+    if any(
+            registro.get(campo) is not None
+            and registro.get(campo) != estado_atual[campo]
+            for campo in campos_estado):
+        return (
+            "ERRO: conflito de undo; os metadados do arquivo mudaram depois "
+            "da operação. Nada foi alterado e a operação continua disponível."
+        )
+
+    pasta = os.path.dirname(atual)
+    fd, copia_atual = tempfile.mkstemp(prefix=".hrx-undo-atual-", dir=pasta)
+    os.close(fd)
+    try:
+        os.replace(atual, copia_atual)
+    except OSError as erro:
+        if os.path.exists(copia_atual):
+            os.unlink(copia_atual)
+        return f"ERRO: não foi possível preparar o undo; nada foi alterado: {erro}"
 
     try:
-        _restaurar_snapshot(registro)
+        if not registro.get("criado"):
+            _restaurar_snapshot(registro)
     except (OSError, UndoError) as erro:
+        try:
+            os.replace(copia_atual, atual)
+        except OSError as rollback:
+            return (
+                "ERRO: não foi possível desfazer nem restaurar o estado "
+                f"anterior: {erro}; rollback: {rollback}"
+            )
         return f"ERRO: não foi possível desfazer; nada foi consumido: {erro}"
     registros[indice]["desfeito"] = True
     registros[indice]["desfeito_em"] = datetime.datetime.now(
         datetime.timezone.utc
     ).isoformat()
+    if os.path.isfile(atual):
+        hash_restaurado = _hash_arquivo(atual)
+        estado_restaurado = _estado_arquivo(atual)
+        for outro_indice, outro in enumerate(registros):
+            if (outro_indice != indice
+                    and not outro.get("desfeito")
+                    and outro.get("caminho") == atual
+                    and outro.get("hash_depois") == hash_restaurado):
+                outro.update(estado_restaurado)
     try:
         _gravar_registros(registros)
-    except OSError as erro:
-        return f"ERRO: arquivo restaurado, mas o histórico não pôde ser atualizado: {erro}"
+    except (OSError, UndoError) as erro:
+        try:
+            os.replace(copia_atual, atual)
+        except OSError as rollback:
+            return (
+                "ERRO: o histórico não pôde ser atualizado e a restauração "
+                f"do estado anterior também falhou: {erro}; rollback: {rollback}"
+            )
+        return (
+            "ERRO: o histórico não pôde ser atualizado; o arquivo permaneceu "
+            f"no estado anterior ao undo: {erro}"
+        )
+    try:
+        os.unlink(copia_atual)
+    except OSError:
+        pass
     acao = "removido" if registro.get("criado") else "restaurado"
     return f"OK: {atual} {acao} pela operação {registro.get('id')}"
+
+
+def caminho_protegido(caminho: str) -> bool:
+    """Indica se um caminho pertence ao armazenamento privado de undo."""
+    try:
+        pasta = os.path.realpath(_pasta())
+        alvo = os.path.realpath(os.path.abspath(os.path.expanduser(str(caminho))))
+        return os.path.commonpath((pasta, alvo)) == pasta
+    except (TypeError, ValueError):
+        return False

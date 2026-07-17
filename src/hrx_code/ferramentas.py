@@ -33,7 +33,10 @@ def _dentro(base: str, caminho: str) -> str:
 
 def _resolver_alvo(caminho: str) -> str:
     """Resolve um alvo de escrita com a mesma regra do gate de risco."""
-    return caminhos.resolver(config.REPO, caminho)
+    alvo = caminhos.resolver(config.REPO, caminho)
+    if undo.caminho_protegido(alvo):
+        raise ValueError("arquivos internos de undo não podem ser alterados")
+    return alvo
 
 
 def _garantir() -> None:
@@ -77,6 +80,8 @@ def ler_arquivo(caminho: str, inicio: int = None, fim: int = None) -> str:
     """Lê um arquivo do PROJETO (config.REPO). Opcional: intervalo de linhas
     [inicio, fim] (1-based). Retorna com números de linha p/ facilitar edições."""
     alvo = _dentro(config.REPO, caminho)
+    if undo.caminho_protegido(alvo):
+        return "ERRO: arquivos internos de undo não podem ser lidos"
     if not os.path.isfile(alvo):
         return f"ERRO: arquivo não existe: {caminho}"
     tamanho = os.path.getsize(alvo)
