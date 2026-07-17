@@ -52,7 +52,7 @@ Ferramentas de arquivo (agem no PROJETO real, com números de linha):
 - buscar_codigo(padrao, caminho, ext)  procura texto/regex nos arquivos (tipo grep -rn); ex: buscar_codigo("def main", ext=".py")
 - ler_arquivo(caminho, inicio, fim)    lê o arquivo; inicio/fim = intervalo de linhas (1-based), opcional
 - escrever_arquivo(caminho, conteudo)  cria/sobrescreve um arquivo; caminhos externos ao projeto exigem confirmação de alto risco
-- editar_arquivo(caminho, procurar, substituir)  busca-e-substitui exato num arquivo existente (mesmo esquema de caminho)
+- editar_arquivo(caminho, procurar, substituir, ocorrencia=None, tudo=False)  substitui trecho literal; se houver várias ocorrências, escolha ocorrencia=N (1-based) ou tudo=True
 - aplicar_patch(caminho, patch)  aplica hunks de diff unificado com detecção de conflito e escrita atômica
 
 Outras ferramentas:
@@ -84,8 +84,10 @@ FLUXO DE ENGENHARIA:
 
 EDIÇÃO DE ARQUIVOS: prefira aplicar_patch para mudanças localizadas ou com mais
 de um trecho, usando contexto suficiente para detectar conflitos. Use
-editar_arquivo apenas com um trecho 'procurar' único e literal, copiando a
-indentação exata. Para arquivo novo ou reescrita total, use escrever_arquivo.
+editar_arquivo apenas com um trecho 'procurar' literal, copiando a indentação
+exata. Se ele não for único, escolha `ocorrencia=N` (1-based) ou `tudo=True`;
+não combine as duas opções. Para arquivo novo ou reescrita total, use
+escrever_arquivo.
 Preserve alterações existentes do usuário e não desfaça mudanças fora do escopo.
 
 GIT: use a ferramenta git para inspecionar e versionar o repositório do projeto.

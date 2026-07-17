@@ -80,7 +80,9 @@ def test_edita_todas_as_ocorrencias_com_autorizacao(projeto):
     comando = permissao.comando_de("editar_arquivo", {"caminho": "app.py"})
     politica.liberar(comando)
 
-    resultado = ferramentas.editar_arquivo("app.py", "antigo", "novo")
+    resultado = ferramentas.editar_arquivo(
+        "app.py", "antigo", "novo", tudo=True
+    )
 
     assert "2 ocorrência(s)" in resultado
     assert arquivo.read_text(encoding="utf-8") == "novo\nlinha\nnovo\n"

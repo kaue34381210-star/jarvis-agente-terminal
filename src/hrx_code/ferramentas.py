@@ -245,11 +245,29 @@ def git(args: str = "") -> str:
     return f"{saida}\n[código de saída: {r.returncode}]"
 
 
-def editar_arquivo(caminho: str, procurar: str, substituir: str) -> str:
-    """Busca-e-substitui num arquivo (relativo ao projeto ou absoluto). Passa
-    pelo trinco de aprovação."""
+def editar_arquivo(caminho: str, procurar: str, substituir: str,
+                   ocorrencia: int = None, tudo: bool = False) -> str:
+    """Substitui um trecho literal inequívoco, uma ocorrência ou todas.
+
+    O arquivo pode ser relativo ao projeto ou absoluto. A operação passa pelo
+    trinco de aprovação e só escreve depois de validar todos os argumentos.
+    """
     if not permissao.consumir(permissao.comando_de("editar_arquivo", {"caminho": caminho})):
         return "ERRO: edição não passou pela aprovação de risco (trinco de segurança)."
+    if not isinstance(procurar, str) or not procurar:
+        return "ERRO: 'procurar' deve ser uma string não vazia"
+    if not isinstance(substituir, str):
+        return "ERRO: 'substituir' deve ser uma string"
+    if not isinstance(tudo, bool):
+        return "ERRO: 'tudo' deve ser booleano (true ou false)"
+    if tudo and ocorrencia is not None:
+        return "ERRO: use 'ocorrencia=N' ou 'tudo=True', não ambos"
+    if (ocorrencia is not None
+            and (isinstance(ocorrencia, bool) or not isinstance(ocorrencia, int))):
+        return "ERRO: 'ocorrencia' deve ser um inteiro a partir de 1"
+    if ocorrencia is not None and ocorrencia < 1:
+        return "ERRO: 'ocorrencia' deve ser um inteiro a partir de 1"
+
     alvo = _resolver_alvo(caminho)
     if not os.path.isfile(alvo):
         return f"ERRO: arquivo não existe: {alvo}"
@@ -258,9 +276,30 @@ def editar_arquivo(caminho: str, procurar: str, substituir: str) -> str:
     if procurar not in texto:
         return f"ERRO: trecho a procurar não encontrado em {alvo}"
     n = texto.count(procurar)
+    if not tudo and ocorrencia is None and n > 1:
+        return (f"ERRO: 'procurar' aparece {n}x em {alvo}. Passe "
+                f"`ocorrencia=N` (1..{n}) ou `tudo=True`, ou aumente o "
+                "contexto de `procurar` para deixá-lo único.")
+    if ocorrencia is not None and ocorrencia > n:
+        return (f"ERRO: 'ocorrencia={ocorrencia}' está fora da faixa; "
+                f"'procurar' aparece {n}x em {alvo}. Use um valor de 1 a {n}.")
+
+    if tudo:
+        novo_texto = texto.replace(procurar, substituir)
+        substituidas = n
+    else:
+        escolhida = ocorrencia or 1
+        inicio = 0
+        indice = -1
+        for _ in range(escolhida):
+            indice = texto.find(procurar, inicio)
+            inicio = indice + len(procurar)
+        novo_texto = texto[:indice] + substituir + texto[indice + len(procurar):]
+        substituidas = 1
+
     with open(alvo, "w", encoding="utf-8") as f:
-        f.write(texto.replace(procurar, substituir))
-    return f"OK: {n} ocorrência(s) substituída(s) em {alvo}"
+        f.write(novo_texto)
+    return f"OK: {substituidas} ocorrência(s) substituída(s) em {alvo}"
 
 
 _HUNK_PATCH = re.compile(
