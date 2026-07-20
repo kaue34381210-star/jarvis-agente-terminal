@@ -36,6 +36,20 @@ def test_esquece_por_id_e_por_termo(memoria_tmp):
     assert ferramentas.memoria_listar() == "(nenhuma memória guardada)"
 
 
+def test_esquecer_por_termo_lista_todos_os_ids_removidos(memoria_tmp):
+    ferramentas.memoria_salvar("Commit da API", "decisao")
+    ferramentas.memoria_salvar("Revisar commit antigo", "tarefa")
+    ferramentas.memoria_salvar("Manter testes rápidos", "preferencia")
+
+    resultado = ferramentas.memoria_esquecer("commit")
+
+    assert resultado == (
+        "IDs removidos: #1, #2\n"
+        "OK: 2 memória(s) esquecida(s)."
+    )
+    assert ferramentas.memoria_listar() == "#3 [preferencia] Manter testes rápidos"
+
+
 def test_compacta_memorias_antigas_e_limpa_arquivos(memoria_tmp, monkeypatch):
     monkeypatch.setattr(config, "MEMORIA_PROMPT_RESUMO_A_PARTIR", 2)
     monkeypatch.setattr(config, "MEMORIA_PROMPT_MAX_ITENS", 1)

@@ -855,17 +855,22 @@ def memoria_esquecer(alvo: str) -> str:
     if not alvo:
         return "ERRO: informe o #id ou um termo da memória a esquecer"
     itens = _ler_memoria()
-    antes = len(itens)
     if alvo.lstrip("#").isdigit():
         idx = int(alvo.lstrip("#"))
-        itens = [m for m in itens if m.get("id") != idx]
+
+        def corresponde(memoria):
+            return memoria.get("id") == idx
     else:
         termo = alvo.lower()
-        itens = [m for m in itens if termo not in m.get("texto", "").lower()]
-    removidas = antes - len(itens)
-    if removidas:
-        _gravar_memoria(itens)
-        return f"OK: {removidas} memória(s) esquecida(s)."
+
+        def corresponde(memoria):
+            return termo in memoria.get("texto", "").lower()
+    afetadas = [m for m in itens if corresponde(m)]
+    if afetadas:
+        _gravar_memoria([m for m in itens if not corresponde(m)])
+        ids = ", ".join(f"#{m.get('id', '?')}" for m in afetadas)
+        return (f"IDs removidos: {ids}\n"
+                f"OK: {len(afetadas)} memória(s) esquecida(s).")
     return "Nenhuma memória correspondeu."
 
 
