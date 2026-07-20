@@ -246,6 +246,22 @@ def _ler_segredo(prompt: str) -> str:
         return ""
 
 
+def _acrescentar_chave(caminho: str, chave: str) -> None:
+    """Acrescenta uma chave sem deixar o arquivo legível por outros usuários."""
+    fd = os.open(caminho, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    try:
+        try:
+            os.fchmod(fd, 0o600)
+        except OSError:
+            pass
+        with os.fdopen(fd, "a", encoding="utf-8") as arquivo:
+            fd = None
+            arquivo.write(chave + "\n")
+    finally:
+        if fd is not None:
+            os.close(fd)
+
+
 def _aprovar_comando(pol: permissao.Politica, comando: str,
                      ferramenta: str = None, args: dict = None):
     """Aplica o gate interativo da política da sessão."""
@@ -476,12 +492,7 @@ def _configurar_motor() -> None:
             pasta = os.path.dirname(config.ARQ_CHAVES)
             if pasta:
                 os.makedirs(pasta, exist_ok=True)
-            with open(config.ARQ_CHAVES, "a", encoding="utf-8") as f:
-                f.write(chave + "\n")
-            try:
-                os.chmod(config.ARQ_CHAVES, 0o600)
-            except OSError:
-                pass
+            _acrescentar_chave(config.ARQ_CHAVES, chave)
         modelo = _perguntar(f"  modelo Gemini [{config.MODELO}] › ")
         if modelo:
             dados["gemini_modelo"] = modelo

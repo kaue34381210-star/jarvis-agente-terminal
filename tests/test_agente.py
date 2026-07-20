@@ -1,3 +1,5 @@
+import stat
+
 import pytest
 
 from hrx_code import agente
@@ -46,3 +48,17 @@ def test_janela_vazia_quando_system_consumiu_todo_orcamento():
     historico = [{"role": "user", "content": "pergunta"}]
 
     assert agente._janela(historico, orcamento=0) == []
+
+
+@pytest.mark.parametrize("preexistente", [False, True])
+def test_acrescentar_chave_forca_permissao_600(tmp_path, preexistente):
+    caminho = tmp_path / "chaves.txt"
+    if preexistente:
+        caminho.write_text("anterior\n", encoding="utf-8")
+        caminho.chmod(0o644)
+
+    agente._acrescentar_chave(str(caminho), "nova")
+
+    esperado = "anterior\nnova\n" if preexistente else "nova\n"
+    assert caminho.read_text(encoding="utf-8") == esperado
+    assert stat.S_IMODE(caminho.stat().st_mode) == 0o600
