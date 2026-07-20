@@ -1,3 +1,4 @@
+import socket
 from unittest.mock import Mock
 
 import pytest
@@ -18,6 +19,44 @@ def projeto(tmp_path, monkeypatch):
     permissao.usar(None)
     yield raiz
     permissao.usar(None)
+
+
+@pytest.mark.parametrize(
+    "endereco",
+    [
+        "127.0.0.1",
+        "10.0.0.1",
+        "169.254.169.254",
+        "100.64.0.1",
+        "2001:db8::1",
+        "::ffff:127.0.0.1",
+    ],
+)
+def test_validar_url_publica_bloqueia_todo_ip_nao_global(monkeypatch, endereco):
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", (endereco, 0))
+        ],
+    )
+
+    with pytest.raises(ValueError, match="IP não público bloqueado"):
+        ferramentas._validar_url_publica("https://exemplo.test/recurso")
+
+
+def test_validar_url_publica_aceita_ip_global(monkeypatch):
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))
+        ],
+    )
+
+    url = "https://exemplo.test/recurso"
+
+    assert ferramentas._validar_url_publica(url) == url
 
 
 def test_lista_e_busca_ignoram_artefatos(projeto):

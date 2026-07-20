@@ -992,9 +992,8 @@ def _validar_url_publica(url: str) -> str:
         # Normaliza IPv4 mapeado em IPv6 antes da validação.
         if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
             ip = ip.ipv4_mapped
-        if (ip.is_private or ip.is_loopback or ip.is_link_local
-                or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
-            raise ValueError(f"IP interno bloqueado: {endereco} ({host})")
+        if not ip.is_global:
+            raise ValueError(f"IP não público bloqueado: {endereco} ({host})")
     return url
 
 
