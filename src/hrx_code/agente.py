@@ -290,9 +290,13 @@ def _simular_comando(pol: permissao.Politica, nome: str, comando: str,
     )
 
 
-def _janela(historico: list) -> list:
+def _janela(historico: list, orcamento: int = None) -> list:
     """Mantém as mensagens recentes dentro do orçamento de contexto."""
-    orcamento = config.CONTEXTO_MAX_CHARS
+    if orcamento is None:
+        orcamento = config.CONTEXTO_MAX_CHARS
+    orcamento = max(0, orcamento)
+    if orcamento == 0:
+        return []
     total, mantidos = 0, []
     for m in reversed(historico):
         total += len(m.get("content", ""))
@@ -377,7 +381,8 @@ def rodar(motor_chamar, pol: permissao.Politica, historico: list, pergunta: str)
     for _ in range(config.MAX_ITER):
         contexto = "\n".join(m.get("content", "") for m in historico[-6:])
         system_msg = {"role": "system", "content": _montar_system(consulta=contexto)}
-        mensagens = [system_msg] + _janela(historico)
+        saldo = config.CONTEXTO_MAX_CHARS - len(system_msg["content"])
+        mensagens = [system_msg] + _janela(historico, saldo)
         with console.status("[cyan]pensando...", spinner="dots"):
             texto = motor_chamar(mensagens)
         historico.append({"role": "assistant", "content": texto})
