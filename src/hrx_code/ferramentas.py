@@ -1165,4 +1165,6 @@ def executar(nome: str, args: dict) -> str:
     except TypeError as e:
         return f"ERRO: argumentos inválidos para {nome}: {e}"
     except Exception as e:  # noqa: BLE001
+        if os.environ.get("HRX_DEBUG"):
+            raise
         return f"ERRO ao executar {nome}: {e}"

@@ -394,3 +394,18 @@ def test_dispatcher_trata_nome_e_argumentos_invalidos():
     assert ferramentas.executar("ler_arquivo", {"campo": "x"}).startswith(
         "ERRO: argumentos inválidos para ler_arquivo:"
     )
+
+
+def test_dispatcher_relanca_excecao_interna_em_debug(monkeypatch):
+    def falhar():
+        raise RuntimeError("falha interna")
+
+    monkeypatch.setitem(ferramentas.REGISTRO, "falhar", falhar)
+    monkeypatch.delenv("HRX_DEBUG", raising=False)
+    assert ferramentas.executar("falhar", {}) == (
+        "ERRO ao executar falhar: falha interna"
+    )
+
+    monkeypatch.setenv("HRX_DEBUG", "1")
+    with pytest.raises(RuntimeError, match="falha interna"):
+        ferramentas.executar("falhar", {})
