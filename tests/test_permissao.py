@@ -98,3 +98,15 @@ def test_caminho_vazio_e_alto_risco(projeto):
 def test_dry_run_fica_desativado_por_padrao_e_pode_ser_ativado():
     assert permissao.Politica().dry_run is False
     assert permissao.Politica(dry_run=True).dry_run is True
+
+
+def test_buscar_web_entra_no_gate_e_exibe_url(projeto):
+    args = {"url": "https://exemplo.test/documentacao"}
+    comando = permissao.comando_de("buscar_web", args)
+    pol = permissao.Politica(modo="cauteloso")
+
+    nivel, _ = pol.classificar(comando, ferramenta="buscar_web", args=args)
+
+    assert permissao.exige_aprovacao("buscar_web") is True
+    assert comando == "buscar_web https://exemplo.test/documentacao"
+    assert nivel == "amarelo"

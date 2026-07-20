@@ -14,6 +14,7 @@ COMANDO_DE_FERRAMENTA = {
     "desfazer_ultima": lambda a: f"desfazer_ultima {(a or {}).get('caminho', '')}".strip(),
     "criar_planilha": lambda a: f"criar_planilha {(a or {}).get('nome', '')}".strip(),
     "criar_pdf": lambda a: f"criar_pdf {(a or {}).get('nome', '')}".strip(),
+    "buscar_web": lambda a: f"buscar_web {(a or {}).get('url', '')}".strip(),
 }
 
 FERRAMENTAS_ESCRITA = {"escrever_arquivo", "editar_arquivo", "aplicar_patch",

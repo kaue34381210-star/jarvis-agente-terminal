@@ -59,6 +59,95 @@ def test_validar_url_publica_aceita_ip_global(monkeypatch):
     assert ferramentas._validar_url_publica(url) == url
 
 
+def test_request_ip_fixado_preserva_host_e_configura_tls(monkeypatch):
+    sessao = Mock()
+    sessao.trust_env = True
+    resposta = Mock()
+    sessao.get.return_value = resposta
+    monkeypatch.setattr(ferramentas.requests, "Session", lambda: sessao)
+
+    retornada, resultado = ferramentas._request_ip_fixado(
+        "https://exemplo.test:8443/docs?q=1",
+        "93.184.216.34",
+        {"User-Agent": "teste"},
+    )
+
+    assert retornada is sessao
+    assert resultado is resposta
+    assert sessao.trust_env is False
+    adaptador = sessao.mount.call_args.args[1]
+    assert adaptador.hostname == "exemplo.test"
+    pool = adaptador.poolmanager.connection_pool_kw
+    assert pool["assert_hostname"] == "exemplo.test"
+    assert pool["server_hostname"] == "exemplo.test"
+    sessao.get.assert_called_once_with(
+        "https://93.184.216.34:8443/docs?q=1",
+        headers={"User-Agent": "teste", "Host": "exemplo.test:8443"},
+        timeout=15,
+        allow_redirects=False,
+        stream=True,
+    )
+
+
+def test_buscar_web_exige_trinco_antes_de_resolver_dns(projeto, monkeypatch):
+    resolver = Mock(side_effect=AssertionError("DNS não deveria ser consultado"))
+    monkeypatch.setattr(ferramentas, "_resolver_url_publica", resolver)
+    permissao.usar(permissao.Politica())
+
+    resultado = ferramentas.buscar_web("https://exemplo.test/segredo")
+
+    assert "não passou pela aprovação" in resultado
+    resolver.assert_not_called()
+
+
+def test_buscar_web_pinna_novo_ip_em_cada_redirect(monkeypatch):
+    class Resposta:
+        def __init__(self, status, headers=None, corpo=b""):
+            self.status_code = status
+            self.headers = headers or {}
+            self.is_redirect = 300 <= status < 400
+            self.ok = 200 <= status < 300
+            self.encoding = "utf-8"
+            self.corpo = corpo
+
+        def close(self):
+            pass
+
+        def iter_content(self, _tamanho):
+            yield self.corpo
+
+    resolucoes = []
+    requisicoes = []
+    respostas = iter([
+        Resposta(302, {"Location": "https://destino.test/final"}),
+        Resposta(200, {"Content-Type": "text/plain"}, b"conteudo"),
+    ])
+
+    def resolver(url):
+        resolucoes.append(url)
+        return {"origem.test": "93.184.216.34",
+                "destino.test": "142.250.79.46"}[url.split("/")[2]]
+
+    def request(url, ip, headers):
+        requisicoes.append((url, ip, headers))
+        return Mock(), next(respostas)
+
+    monkeypatch.setattr(ferramentas, "_resolver_url_publica", resolver)
+    monkeypatch.setattr(ferramentas, "_request_ip_fixado", request)
+
+    resultado = ferramentas.buscar_web("https://origem.test/inicio")
+
+    assert resolucoes == [
+        "https://origem.test/inicio",
+        "https://destino.test/final",
+    ]
+    assert [(url, ip) for url, ip, _ in requisicoes] == [
+        ("https://origem.test/inicio", "93.184.216.34"),
+        ("https://destino.test/final", "142.250.79.46"),
+    ]
+    assert resultado == "# https://destino.test/final\n\nconteudo"
+
+
 def test_lista_e_busca_ignoram_artefatos(projeto):
     (projeto / "src").mkdir()
     (projeto / "src" / "app.py").write_text("# TODO: revisar\n", encoding="utf-8")

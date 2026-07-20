@@ -8,6 +8,8 @@ import tempfile
 import datetime
 import subprocess
 
+import requests
+
 from . import caminhos
 from . import config
 from . import gitignore
@@ -964,12 +966,8 @@ def _html_para_texto(html: str) -> str:
     return texto.strip()
 
 
-def _validar_url_publica(url: str) -> str:
-    """Valida o esquema e bloqueia endereços internos contra SSRF.
-
-    Ainda há risco de DNS rebinding entre a validação e a conexão; eliminá-lo
-    exige fixar o IP e o cabeçalho Host em um adaptador HTTP próprio.
-    """
+def _resolver_url_publica(url: str) -> str:
+    """Resolve uma URL uma vez e devolve um IP global para a conexão."""
     import ipaddress
     import socket
     from urllib.parse import urlparse
@@ -981,11 +979,16 @@ def _validar_url_publica(url: str) -> str:
     if not host:
         raise ValueError("URL sem host")
     try:
-        infos = socket.getaddrinfo(host, None)
+        p.port
+    except ValueError:
+        raise ValueError("porta inválida na URL")
+    try:
+        infos = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
     except socket.gaierror:
         raise ValueError(f"host não resolve: {host}")
     if not infos:
         raise ValueError(f"host sem endereços: {host}")
+    escolhido = None
     for info in infos:
         endereco = info[4][0]
         ip = ipaddress.ip_address(endereco)
@@ -994,41 +997,98 @@ def _validar_url_publica(url: str) -> str:
             ip = ip.ipv4_mapped
         if not ip.is_global:
             raise ValueError(f"IP não público bloqueado: {endereco} ({host})")
+        if escolhido is None:
+            escolhido = str(ip)
+    return escolhido
+
+
+def _validar_url_publica(url: str) -> str:
+    """Valida esquema, host e todos os endereços resolvidos contra SSRF."""
+    _resolver_url_publica(url)
     return url
+
+
+class _AdaptadorIPFixado(requests.adapters.HTTPAdapter):
+    """Conecta ao IP da URL preservando SNI e validação TLS do host original."""
+
+    def __init__(self, hostname: str):
+        self.hostname = hostname
+        super().__init__()
+
+    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        pool_kwargs["assert_hostname"] = self.hostname
+        pool_kwargs["server_hostname"] = self.hostname
+        return super().init_poolmanager(
+            connections, maxsize, block=block, **pool_kwargs
+        )
+
+
+def _request_ip_fixado(url: str, ip: str, headers: dict):
+    """Abre um GET no IP já validado sem fazer nova resolução DNS."""
+    from urllib.parse import urlsplit, urlunsplit
+
+    p = urlsplit(url)
+    hostname = p.hostname.encode("idna").decode("ascii")
+    host_header = f"[{hostname}]" if ":" in hostname else hostname
+    if p.port is not None:
+        host_header += f":{p.port}"
+    ip_url = f"[{ip}]" if ":" in ip else ip
+    if p.port is not None:
+        ip_url += f":{p.port}"
+    url_fixada = urlunsplit((p.scheme, ip_url, p.path or "/", p.query, ""))
+
+    sessao = requests.Session()
+    sessao.trust_env = False
+    if p.scheme == "https":
+        sessao.mount("https://", _AdaptadorIPFixado(hostname))
+    cabecalhos = dict(headers)
+    cabecalhos["Host"] = host_header
+    try:
+        resposta = sessao.get(
+            url_fixada,
+            headers=cabecalhos,
+            timeout=15,
+            allow_redirects=False,
+            stream=True,
+        )
+    except Exception:
+        sessao.close()
+        raise
+    return sessao, resposta
 
 
 def buscar_web(url: str, max_chars: int = 8000) -> str:
     """Baixa uma URL pública e devolve o texto principal em ~markdown.
     Uso: consultar docs, ler stack traces, ver issues/CVE, blogs técnicos.
     Bloqueia URLs internas (SSRF), esquemas não-http e conteúdo > 2 MB."""
-    import requests
     from urllib.parse import urljoin
 
     if not url or not str(url).strip():
         return "ERRO: URL vazia"
-    try:
-        _validar_url_publica(url)
-    except ValueError as e:
-        return f"ERRO: {e}"
+    comando = permissao.comando_de("buscar_web", {"url": url})
+    if not permissao.consumir(comando):
+        return ("ERRO: buscar_web não passou pela aprovação de risco (trinco de "
+                "segurança). Chame pelo fluxo normal.")
 
     headers = {"User-Agent": "hrx-code/1.0 (+https://www.dwsolutions.company)"}
     atual = url
-    for _ in range(6):  # até 5 redirects + a request final
+    for indice in range(6):  # até 5 redirects + a request final
         try:
-            r = requests.get(atual, headers=headers, timeout=15,
-                             allow_redirects=False, stream=True)
+            ip = _resolver_url_publica(atual)
+        except ValueError as e:
+            prefixo = "ERRO:" if indice == 0 else "ERRO ao seguir redirect:"
+            return f"{prefixo} {e}"
+        try:
+            sessao, r = _request_ip_fixado(atual, ip, headers)
         except requests.RequestException as e:
             return f"ERRO ao baixar {atual}: {e}"
         if r.is_redirect or r.status_code in (301, 302, 303, 307, 308):
             destino = r.headers.get("Location", "")
             r.close()
+            sessao.close()
             if not destino:
                 return f"ERRO: redirect sem Location em {atual}"
             atual = urljoin(atual, destino)
-            try:
-                _validar_url_publica(atual)
-            except ValueError as e:
-                return f"ERRO ao seguir redirect: {e}"
             continue
         break
     else:
@@ -1036,6 +1096,7 @@ def buscar_web(url: str, max_chars: int = 8000) -> str:
 
     if not r.ok:
         r.close()
+        sessao.close()
         return f"ERRO HTTP {r.status_code} em {atual}"
 
     limite_bytes = 2_000_000
@@ -1048,6 +1109,7 @@ def buscar_web(url: str, max_chars: int = 8000) -> str:
     ctype = (r.headers.get("Content-Type") or "").lower()
     encoding = r.encoding or "utf-8"
     r.close()
+    sessao.close()
 
     try:
         texto = bytes(corpo).decode(encoding, errors="replace")
