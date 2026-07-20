@@ -110,3 +110,26 @@ def test_buscar_web_entra_no_gate_e_exibe_url(projeto):
     assert permissao.exige_aprovacao("buscar_web") is True
     assert comando == "buscar_web https://exemplo.test/documentacao"
     assert nivel == "amarelo"
+
+
+def test_trinco_rejeita_args_alterados_e_invalida_autorizacao(projeto):
+    pol = permissao.Politica()
+    comando = "escrever_arquivo saida.txt"
+    aprovados = {"caminho": "saida.txt", "conteudo": "aprovado"}
+    alterados = {"caminho": "saida.txt", "conteudo": "trocado"}
+    pol.liberar(comando, "escrever_arquivo", aprovados)
+
+    assert pol.consumir(comando, "escrever_arquivo", alterados) is False
+    assert pol.consumir(comando, "escrever_arquivo", aprovados) is False
+
+
+def test_trinco_normaliza_argumentos_padrao_omitidos(projeto):
+    pol = permissao.Politica()
+    comando = "buscar_web https://exemplo.test"
+    pol.liberar(comando, "buscar_web", {"url": "https://exemplo.test"})
+
+    assert pol.consumir(
+        comando,
+        "buscar_web",
+        {"url": "https://exemplo.test", "max_chars": 8000},
+    ) is True

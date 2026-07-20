@@ -307,7 +307,7 @@ def desfazer_ultima(caminho: str = None) -> str:
     """Desfaz a operação ativa mais recente, recusando estado divergente."""
     args = {"caminho": caminho} if caminho else {}
     comando = permissao.comando_de("desfazer_ultima", args)
-    if not permissao.consumir(comando):
+    if not permissao.consumir(comando, "desfazer_ultima", args):
         return "ERRO: undo não passou pela aprovação de risco (trinco de segurança)."
 
     alvo = caminhos.resolver(config.REPO, caminho) if caminho else None

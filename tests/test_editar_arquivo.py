@@ -21,8 +21,10 @@ def arquivo(tmp_path, monkeypatch):
 def editar_autorizado(caminho="app.txt", procurar="alvo", substituir="novo",
                       **opcoes):
     politica = permissao.ativa()
-    comando = permissao.comando_de("editar_arquivo", {"caminho": caminho})
-    politica.liberar(comando)
+    args = {"caminho": caminho, "procurar": procurar,
+            "substituir": substituir, **opcoes}
+    comando = permissao.comando_de("editar_arquivo", args)
+    politica.liberar(comando, "editar_arquivo", args)
     return ferramentas.editar_arquivo(
         caminho, procurar, substituir, **opcoes
     )

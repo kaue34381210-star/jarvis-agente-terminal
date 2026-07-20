@@ -186,11 +186,11 @@ def test_le_arquivo_reporta_truncamento_exato(projeto):
 def test_escrita_exige_e_consome_autorizacao(projeto):
     politica = permissao.Politica()
     permissao.usar(politica)
-    args = {"caminho": "saida.txt"}
+    args = {"caminho": "saida.txt", "conteudo": "conteúdo"}
     comando = permissao.comando_de("escrever_arquivo", args)
 
     negado = ferramentas.escrever_arquivo("saida.txt", "conteúdo")
-    politica.liberar(comando)
+    politica.liberar(comando, "escrever_arquivo", args)
     permitido = ferramentas.escrever_arquivo("saida.txt", "conteúdo")
     reutilizado = ferramentas.escrever_arquivo("saida.txt", "outro")
 
@@ -200,13 +200,28 @@ def test_escrita_exige_e_consome_autorizacao(projeto):
     assert "não passou" in reutilizado
 
 
+def test_escrita_rejeita_conteudo_trocado_depois_da_aprovacao(projeto):
+    politica = permissao.Politica()
+    permissao.usar(politica)
+    args = {"caminho": "saida.txt", "conteudo": "aprovado"}
+    comando = permissao.comando_de("escrever_arquivo", args)
+    politica.liberar(comando, "escrever_arquivo", args)
+
+    resultado = ferramentas.escrever_arquivo("saida.txt", "trocado")
+
+    assert "não passou pela aprovação" in resultado
+    assert not (projeto / "saida.txt").exists()
+
+
 def test_edita_todas_as_ocorrencias_com_autorizacao(projeto):
     arquivo = projeto / "app.py"
     arquivo.write_text("antigo\nlinha\nantigo\n", encoding="utf-8")
     politica = permissao.Politica()
     permissao.usar(politica)
-    comando = permissao.comando_de("editar_arquivo", {"caminho": "app.py"})
-    politica.liberar(comando)
+    args = {"caminho": "app.py", "procurar": "antigo",
+            "substituir": "novo", "tudo": True}
+    comando = permissao.comando_de("editar_arquivo", args)
+    politica.liberar(comando, "editar_arquivo", args)
 
     resultado = ferramentas.editar_arquivo(
         "app.py", "antigo", "novo", tudo=True
@@ -221,8 +236,6 @@ def test_aplica_patch_unificado_com_multiplos_hunks(projeto):
     arquivo.write_text("um\ndois\ntres\nquatro\n", encoding="utf-8")
     politica = permissao.Politica()
     permissao.usar(politica)
-    comando = permissao.comando_de("aplicar_patch", {"caminho": "app.txt"})
-    politica.liberar(comando)
     patch = """--- a/app.txt
 +++ b/app.txt
 @@ -1,3 +1,4 @@
@@ -235,6 +248,9 @@ def test_aplica_patch_unificado_com_multiplos_hunks(projeto):
 -quatro
 +QUATRO
 """
+    args = {"caminho": "app.txt", "patch": patch}
+    comando = permissao.comando_de("aplicar_patch", args)
+    politica.liberar(comando, "aplicar_patch", args)
 
     resultado = ferramentas.aplicar_patch("app.txt", patch)
 
@@ -248,13 +264,14 @@ def test_patch_com_conflito_nao_altera_arquivo(projeto):
     arquivo.write_text(original, encoding="utf-8")
     politica = permissao.Politica()
     permissao.usar(politica)
-    comando = permissao.comando_de("aplicar_patch", {"caminho": "app.txt"})
-    politica.liberar(comando)
     patch = """@@ -1,2 +1,2 @@
 -linha antiga
 +linha nova
  segunda
 """
+    args = {"caminho": "app.txt", "patch": patch}
+    comando = permissao.comando_de("aplicar_patch", args)
+    politica.liberar(comando, "aplicar_patch", args)
 
     resultado = ferramentas.aplicar_patch("app.txt", patch)
 
@@ -298,8 +315,9 @@ def test_patch_respeita_marcador_de_nova_linha(projeto, original, patch, esperad
     arquivo.write_text(original, encoding="utf-8")
     politica = permissao.Politica()
     permissao.usar(politica)
-    comando = permissao.comando_de("aplicar_patch", {"caminho": "app.txt"})
-    politica.liberar(comando)
+    args = {"caminho": "app.txt", "patch": patch}
+    comando = permissao.comando_de("aplicar_patch", args)
+    politica.liberar(comando, "aplicar_patch", args)
 
     resultado = ferramentas.aplicar_patch("app.txt", patch)
 
@@ -316,7 +334,7 @@ def test_comando_nao_chega_ao_subprocess_sem_autorizacao(projeto, monkeypatch):
     negado = ferramentas.rodar_comando("echo ok")
     executar.assert_not_called()
 
-    politica.liberar("echo ok")
+    politica.liberar("echo ok", "rodar_comando", {"comando": "echo ok"})
     permitido = ferramentas.rodar_comando("echo ok")
 
     assert "não passou" in negado
@@ -334,7 +352,9 @@ def test_comando_reporta_truncamento_e_codigo_de_erro(projeto, monkeypatch):
     monkeypatch.setattr(ferramentas.subprocess, "run", executar)
     politica = permissao.Politica()
     permissao.usar(politica)
-    politica.liberar("comando grande")
+    politica.liberar(
+        "comando grande", "rodar_comando", {"comando": "comando grande"}
+    )
 
     resultado = ferramentas.rodar_comando("comando grande")
 
@@ -352,7 +372,7 @@ def test_git_reporta_saida_truncada_e_codigo(projeto, monkeypatch):
     monkeypatch.setattr(ferramentas.subprocess, "run", executar)
     politica = permissao.Politica()
     permissao.usar(politica)
-    politica.liberar("git status")
+    politica.liberar("git status", "git", {"args": "status"})
 
     resultado = ferramentas.git("status")
 

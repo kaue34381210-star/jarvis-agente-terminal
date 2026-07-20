@@ -1,4 +1,6 @@
 """Política de permissões da sessão do HRX Code."""
+import hashlib
+import json
 import os
 
 from . import aprovacao
@@ -36,6 +38,15 @@ _MULTI = {"git", "pip", "pip3", "pipx", "npm", "pnpm", "yarn", "docker",
           "podman", "kubectl", "cargo", "go", "apt", "apt-get", "dnf", "yum",
           "pacman", "brew", "systemctl", "service"}
 
+_PADROES_ARGS = {
+    "git": {"args": ""},
+    "editar_arquivo": {"ocorrencia": None, "tudo": False},
+    "desfazer_ultima": {"caminho": None},
+    "criar_planilha": {"cabecalho": None},
+    "criar_pdf": {"titulo": None, "conteudo": None, "tabela": None},
+    "buscar_web": {"max_chars": 8000},
+}
+
 
 def exige_aprovacao(nome: str) -> bool:
     return nome in COMANDO_DE_FERRAMENTA
@@ -55,6 +66,18 @@ def assinatura(comando: str) -> str:
     if exe in _MULTI and len(toks) > 1 and not toks[1].startswith("-"):
         return f"{exe} {toks[1].lower()}"
     return exe
+
+
+def _token_trinco(comando: str, ferramenta: str, args: dict) -> tuple:
+    canonicos = dict(args or {})
+    for campo, padrao in _PADROES_ARGS.get(ferramenta, {}).items():
+        if canonicos.get(campo) == padrao:
+            canonicos.pop(campo, None)
+    serializado = json.dumps(
+        canonicos, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+    )
+    digest = hashlib.sha256(serializado.encode("utf-8")).hexdigest()
+    return comando, ferramenta, digest
 
 
 class Politica:
@@ -102,13 +125,16 @@ class Politica:
         self.sempre.add(assi)
         return assi
 
-    def liberar(self, comando: str) -> None:
+    def liberar(self, comando: str, ferramenta: str = None,
+                args: dict = None) -> None:
         """Autoriza uma execução da ferramenta para o comando."""
-        self._trinco = comando
+        self._trinco = _token_trinco(comando, ferramenta, args)
 
-    def consumir(self, comando: str) -> bool:
+    def consumir(self, comando: str, ferramenta: str = None,
+                 args: dict = None) -> bool:
         """Consome a autorização de uso único do comando."""
-        ok = self._trinco is not None and self._trinco == comando
+        token = _token_trinco(comando, ferramenta, args)
+        ok = self._trinco is not None and self._trinco == token
         self._trinco = None
         return ok
 
@@ -125,8 +151,8 @@ def ativa():
     return _ATUAL
 
 
-def consumir(comando: str) -> bool:
+def consumir(comando: str, ferramenta: str = None, args: dict = None) -> bool:
     """Valida a autorização quando há uma política ativa."""
     if _ATUAL is None:
         return True
-    return _ATUAL.consumir(comando)
+    return _ATUAL.consumir(comando, ferramenta=ferramenta, args=args)

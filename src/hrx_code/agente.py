@@ -422,7 +422,7 @@ def rodar(motor_chamar, pol: permissao.Politica, historico: list, pergunta: str)
                 permitido, bloqueio = _aprovar_comando(
                     pol, comando, ferramenta=nome, args=args)
                 if permitido:
-                    pol.liberar(comando)
+                    pol.liberar(comando, ferramenta=nome, args=args)
                     resultado = ferramentas.executar(nome, args)
                 else:
                     resultado = bloqueio
@@ -593,7 +593,7 @@ def _comando_especial(motor_chamar, pool, pol: permissao.Politica, historico: li
                 pol, comando, ferramenta=nome, args=args
             )
             if permitido:
-                pol.liberar(comando)
+                pol.liberar(comando, ferramenta=nome, args=args)
                 resultado = ferramentas.executar(nome, args)
             else:
                 resultado = bloqueio

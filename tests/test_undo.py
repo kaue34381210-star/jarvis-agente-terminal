@@ -24,15 +24,16 @@ def ambiente(tmp_path, monkeypatch):
     permissao.usar(None)
 
 
-def _autorizar(politica, ferramenta, caminho=None):
+def _autorizar(politica, ferramenta, caminho=None, **extras):
     args = {"caminho": caminho} if caminho else {}
+    args.update(extras)
     comando = permissao.comando_de(ferramenta, args)
-    politica.liberar(comando)
+    politica.liberar(comando, ferramenta, args)
     return comando
 
 
 def _escrever(politica, caminho, conteudo):
-    _autorizar(politica, "escrever_arquivo", caminho)
+    _autorizar(politica, "escrever_arquivo", caminho, conteudo=conteudo)
     return ferramentas.escrever_arquivo(caminho, conteudo)
 
 
@@ -91,12 +92,17 @@ def test_edicao_e_patch_tambem_entram_no_historico(ambiente, ferramenta):
     arquivo.write_text("antes\n", encoding="utf-8")
     politica = permissao.Politica()
     permissao.usar(politica)
-    _autorizar(politica, ferramenta, "alvo.txt")
     if ferramenta == "editar_arquivo":
+        _autorizar(
+            politica, ferramenta, "alvo.txt",
+            procurar="antes", substituir="depois",
+        )
         resultado = ferramentas.editar_arquivo("alvo.txt", "antes", "depois")
     else:
+        patch = "@@ -1 +1 @@\n-antes\n+depois\n"
+        _autorizar(politica, ferramenta, "alvo.txt", patch=patch)
         resultado = ferramentas.aplicar_patch(
-            "alvo.txt", "@@ -1 +1 @@\n-antes\n+depois\n"
+            "alvo.txt", patch
         )
 
     assert resultado.startswith("OK:")
@@ -165,7 +171,9 @@ def test_falha_de_escrita_reverte_e_nao_publica_transacao(ambiente, monkeypatch)
     arquivo.write_bytes(b"original")
     politica = permissao.Politica()
     permissao.usar(politica)
-    _autorizar(politica, "escrever_arquivo", "alvo.txt")
+    _autorizar(
+        politica, "escrever_arquivo", "alvo.txt", conteudo="alterado"
+    )
     monkeypatch.setattr(
         undo, "confirmar_transacao", Mock(side_effect=OSError("log indisponível"))
     )
@@ -188,7 +196,9 @@ def test_historico_corrompido_recusa_mutacao_sem_apagar_estado(
     log.write_text("{json quebrado", encoding="utf-8")
     politica = permissao.Politica()
     permissao.usar(politica)
-    _autorizar(politica, "escrever_arquivo", "alvo.txt")
+    _autorizar(
+        politica, "escrever_arquivo", "alvo.txt", conteudo="alterado"
+    )
 
     with pytest.raises(undo.UndoError, match="corrompido"):
         ferramentas.escrever_arquivo("alvo.txt", "alterado")
@@ -205,7 +215,9 @@ def test_falha_de_rollback_preserva_snapshot_e_reporta_estado(
     arquivo.write_text("original", encoding="utf-8")
     politica = permissao.Politica()
     permissao.usar(politica)
-    _autorizar(politica, "escrever_arquivo", "alvo.txt")
+    _autorizar(
+        politica, "escrever_arquivo", "alvo.txt", conteudo="alterado"
+    )
     monkeypatch.setattr(
         undo, "confirmar_transacao", Mock(side_effect=OSError("log indisponível"))
     )
@@ -258,7 +270,7 @@ def test_arquivo_maior_que_orcamento_recusa_mutacao(ambiente, monkeypatch):
     monkeypatch.setattr(undo, "MAX_BYTES", 3)
     politica = permissao.Politica()
     permissao.usar(politica)
-    _autorizar(politica, "escrever_arquivo", "grande.txt")
+    _autorizar(politica, "escrever_arquivo", "grande.txt", conteudo="x")
 
     with pytest.raises(undo.UndoError, match="mutação recusada"):
         ferramentas.escrever_arquivo("grande.txt", "x")
@@ -390,7 +402,9 @@ def test_ferramentas_de_escrita_nao_alteram_armazenamento_de_undo(
     snapshot = dados / "undo" / registro["snapshot"]
     original = snapshot.read_bytes()
     relativo = snapshot.relative_to(repo).as_posix()
-    _autorizar(politica, "escrever_arquivo", relativo)
+    _autorizar(
+        politica, "escrever_arquivo", relativo, conteudo="vazou"
+    )
 
     resultado = ferramentas.executar(
         "escrever_arquivo", {"caminho": relativo, "conteudo": "vazou"}

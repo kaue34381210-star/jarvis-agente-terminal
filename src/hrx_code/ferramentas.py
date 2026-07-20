@@ -108,7 +108,9 @@ def ler_arquivo(caminho: str, inicio: int = None, fim: int = None) -> str:
 def escrever_arquivo(caminho: str, conteudo: str) -> str:
     """Cria/sobrescreve um arquivo. Aceita caminho relativo (contra o projeto)
     ou absoluto. Caminhos externos exigem confirmação explícita de alto risco."""
-    if not permissao.consumir(permissao.comando_de("escrever_arquivo", {"caminho": caminho})):
+    args = {"caminho": caminho, "conteudo": conteudo}
+    comando = permissao.comando_de("escrever_arquivo", args)
+    if not permissao.consumir(comando, "escrever_arquivo", args):
         return "ERRO: escrita não passou pela aprovação de risco (trinco de segurança)."
     alvo = _resolver_alvo(caminho)
     if not isinstance(conteudo, str):
@@ -290,7 +292,9 @@ def rodar_comando(comando: str) -> str:
     comando = comando.strip()
     if not comando:
         return "ERRO: comando vazio"
-    if not permissao.consumir(comando):
+    if not permissao.consumir(
+        comando, "rodar_comando", {"comando": comando}
+    ):
         return ("ERRO: comando não passou pela aprovação de risco (trinco de "
                 "segurança). Chame pelo fluxo normal — não há como pular o gate.")
     try:
@@ -306,7 +310,8 @@ def rodar_comando(comando: str) -> str:
 
 def git(args: str = "") -> str:
     """Roda ``git <args>`` no repositório atual após aprovação."""
-    if not permissao.consumir(("git " + (args or "")).strip()):
+    comando = ("git " + (args or "")).strip()
+    if not permissao.consumir(comando, "git", {"args": args}):
         return ("ERRO: git não passou pela aprovação de risco (trinco de "
                 "segurança). Chame pelo fluxo normal.")
     try:
@@ -339,7 +344,10 @@ def editar_arquivo(caminho: str, procurar: str, substituir: str,
     O arquivo pode ser relativo ao projeto ou absoluto. A operação passa pelo
     trinco de aprovação e só escreve depois de validar todos os argumentos.
     """
-    if not permissao.consumir(permissao.comando_de("editar_arquivo", {"caminho": caminho})):
+    args = {"caminho": caminho, "procurar": procurar,
+            "substituir": substituir, "ocorrencia": ocorrencia, "tudo": tudo}
+    comando = permissao.comando_de("editar_arquivo", args)
+    if not permissao.consumir(comando, "editar_arquivo", args):
         return "ERRO: edição não passou pela aprovação de risco (trinco de segurança)."
     if not isinstance(procurar, str) or not procurar:
         return "ERRO: 'procurar' deve ser uma string não vazia"
@@ -402,8 +410,9 @@ _HUNK_PATCH = re.compile(
 
 def aplicar_patch(caminho: str, patch: str) -> str:
     """Aplica hunks de um diff unificado a um arquivo de forma atômica."""
-    comando = permissao.comando_de("aplicar_patch", {"caminho": caminho})
-    if not permissao.consumir(comando):
+    args = {"caminho": caminho, "patch": patch}
+    comando = permissao.comando_de("aplicar_patch", args)
+    if not permissao.consumir(comando, "aplicar_patch", args):
         return "ERRO: patch não passou pela aprovação de risco (trinco de segurança)."
     alvo = _resolver_alvo(caminho)
     if not os.path.isfile(alvo):
@@ -508,7 +517,9 @@ def criar_planilha(nome: str, dados: list, cabecalho: list = None) -> str:
     """Cria uma planilha Excel (.xlsx). `nome` pode ser relativo ao projeto ou
     absoluto (`~/Downloads/x.xlsx`, `/tmp/y.xlsx`). `dados` = lista de linhas
     (listas) ou lista de dicionários. `cabecalho` opcional (lista de colunas)."""
-    if not permissao.consumir(permissao.comando_de("criar_planilha", {"nome": nome})):
+    args = {"nome": nome, "dados": dados, "cabecalho": cabecalho}
+    comando = permissao.comando_de("criar_planilha", args)
+    if not permissao.consumir(comando, "criar_planilha", args):
         return "ERRO: criação de planilha não passou pela aprovação de risco (trinco de segurança)."
     from openpyxl import Workbook
     from openpyxl.styles import Font
@@ -554,7 +565,9 @@ def criar_pdf(nome: str, titulo: str = None, conteudo=None, tabela: list = None)
     (`~/Downloads/x.pdf`, `/tmp/y.pdf`). `titulo` (opcional), `conteudo` (texto
     ou lista de parágrafos), `tabela` (opcional: lista de linhas, a 1ª vira
     cabeçalho)."""
-    if not permissao.consumir(permissao.comando_de("criar_pdf", {"nome": nome})):
+    args = {"nome": nome, "titulo": titulo, "conteudo": conteudo, "tabela": tabela}
+    comando = permissao.comando_de("criar_pdf", args)
+    if not permissao.consumir(comando, "criar_pdf", args):
         return "ERRO: criação de PDF não passou pela aprovação de risco (trinco de segurança)."
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
@@ -1070,8 +1083,9 @@ def buscar_web(url: str, max_chars: int = 8000) -> str:
 
     if not url or not str(url).strip():
         return "ERRO: URL vazia"
-    comando = permissao.comando_de("buscar_web", {"url": url})
-    if not permissao.consumir(comando):
+    args = {"url": url, "max_chars": max_chars}
+    comando = permissao.comando_de("buscar_web", args)
+    if not permissao.consumir(comando, "buscar_web", args):
         return ("ERRO: buscar_web não passou pela aprovação de risco (trinco de "
                 "segurança). Chame pelo fluxo normal.")
 
